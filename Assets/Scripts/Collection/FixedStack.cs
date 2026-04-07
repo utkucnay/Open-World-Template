@@ -39,7 +39,7 @@ namespace Glai.Collection
 
             if (arrayPointer == null)
             {
-                throw new InvalidOperationException("List is not initialized.");
+                throw new InvalidOperationException("Stack is not initialized.");
             }
 
             arrayPointer[count] = value;
@@ -55,7 +55,7 @@ namespace Glai.Collection
 
             if (arrayPointer == null)
             {
-                throw new InvalidOperationException("List is not initialized.");
+                throw new InvalidOperationException("Stack is not initialized.");
             }
 
             count--;
@@ -71,7 +71,7 @@ namespace Glai.Collection
 
             if (arrayPointer == null)
             {
-                throw new InvalidOperationException("List is not initialized.");
+                throw new InvalidOperationException("Stack is not initialized.");
             }
             
             return arrayPointer[count - 1];

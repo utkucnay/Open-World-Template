@@ -57,7 +57,7 @@ namespace Glai.Tween
 
         public static float3 EaseFunc(in float3 from, in float3 to, float t, Ease ease)
         {
-            return default;
+            return math.lerp(from, to, t);
         }
     }
 
@@ -129,6 +129,11 @@ namespace Glai.Tween
 
         public void RemoveTween(TweenHandle handle)
         {
+            if (handle.Index < 0 || handle.Index >= nextTweenHandleIndex)
+            {
+                throw new InvalidOperationException("Invalid tween handle.");
+            }
+
             if (!handle.IsValid(tweenHandles[handle.Index]))
             {
                 throw new InvalidOperationException("Invalid tween handle.");
@@ -147,6 +152,11 @@ namespace Glai.Tween
 
         public void SetTweenSpeed(TweenHandle handle, float speed)
         {
+            if (handle.Index < 0 || handle.Index >= nextTweenHandleIndex)
+            {
+                throw new InvalidOperationException("Invalid tween handle.");
+            }
+
             if (!handle.IsValid(tweenHandles[handle.Index]))
             {
                 throw new InvalidOperationException("Invalid tween handle.");
@@ -160,6 +170,11 @@ namespace Glai.Tween
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool IsActive(TweenHandle handle)
         {
+            if (handle.Index < 0 || handle.Index >= nextTweenHandleIndex)
+            {
+                return false;
+            }
+
             return handle.IsValid(tweenHandles[handle.Index]);
         }
 
@@ -176,6 +191,11 @@ namespace Glai.Tween
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void SetActive(TweenHandle handle, bool active)
         {
+            if (handle.Index < 0 || handle.Index >= nextTweenHandleIndex)
+            {
+                throw new InvalidOperationException("Invalid tween handle.");
+            }
+
             if (!handle.IsValid(tweenHandles[handle.Index]))
             {
                 throw new InvalidOperationException("Invalid tween handle.");

@@ -58,11 +58,8 @@ namespace Glai.Tween
                     tweenDispatch.positionDispatcher.SetTweenSpeed(handle, speed);
                     break;
                 case TweenType.Rotation:
-                    tweenDispatch.rotationDispatcher.SetTweenSpeed(handle, speed);
-                    break;
                 case TweenType.Scale:
-                    tweenDispatch.scaleDispatcher.SetTweenSpeed(handle, speed);
-                    break;
+                    throw new NotImplementedException($"TweenType.{handle.Type} is not yet supported.");
             }
         }
 
@@ -73,9 +70,8 @@ namespace Glai.Tween
                 case TweenType.Position:
                     return tweenDispatch.positionDispatcher.IsActive(handle);
                 case TweenType.Rotation:
-                    return tweenDispatch.rotationDispatcher.IsActive(handle);
                 case TweenType.Scale:
-                    return tweenDispatch.scaleDispatcher.IsActive(handle);
+                    throw new NotImplementedException($"TweenType.{handle.Type} is not yet supported.");
                 default:
                     return false;
             }
@@ -89,11 +85,8 @@ namespace Glai.Tween
                     tweenDispatch.positionDispatcher.SetActive(handle, isActive);
                     break;
                 case TweenType.Rotation:
-                    tweenDispatch.rotationDispatcher.SetActive(handle, isActive);
-                    break;
                 case TweenType.Scale:
-                    tweenDispatch.scaleDispatcher.SetActive(handle, isActive);
-                    break;
+                    throw new NotImplementedException($"TweenType.{handle.Type} is not yet supported.");
                 default:
                     return false;
             }

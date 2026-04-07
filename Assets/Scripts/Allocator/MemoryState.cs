@@ -54,6 +54,7 @@ namespace Glai.Allocator
             if (handle.Id != Id)
             {
                 LogError($"MemoryStateHandle with Id {handle.Id} does not belong to this MemoryState with Id {Id}.");
+                return default;
             }
 
             var allocator = Allocators[handle.ArrayIndex];

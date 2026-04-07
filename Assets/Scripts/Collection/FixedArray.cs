@@ -38,7 +38,7 @@ namespace Glai.Collection
 
             if (arrayPointer == null)
             {
-                throw new InvalidOperationException("List is not initialized.");
+                throw new InvalidOperationException("Array is not initialized.");
             }
 
             return arrayPointer[index];
@@ -53,7 +53,7 @@ namespace Glai.Collection
 
             if (arrayPointer == null)
             {
-                throw new InvalidOperationException("List is not initialized.");
+                throw new InvalidOperationException("Array is not initialized.");
             }
             
             arrayPointer[index] = value;
@@ -68,7 +68,7 @@ namespace Glai.Collection
 
             if (arrayPointer == null)
             {
-                throw new InvalidOperationException("List is not initialized.");
+                throw new InvalidOperationException("Array is not initialized.");
             }
 
             T temp = arrayPointer[index1];

@@ -37,6 +37,7 @@ namespace Glai.Allocator
             Name = data.name;
 
             handles = (Handle*)Marshal.AllocHGlobal(sizeof(Handle) * data.maxHandles);
+            Unsafe.InitBlock(handles, 0, (uint)(sizeof(Handle) * data.maxHandles));
             handleIndex = 0;
 
             dataPtr = Marshal.AllocHGlobal(data.capacityBytes);
@@ -71,7 +72,7 @@ namespace Glai.Allocator
 
             if ((long)offsetPtr + byteSize - (long)dataPtr > dataCapacityBytes)
             {
-                throw new InvalidOperationException("Stack is out of memory.");
+                throw new InvalidOperationException("Stack allocator is out of memory.");
             }
 
             var handle = new Handle(id, handleIndex, (int)((long)offsetPtr - (long)dataPtr), handles[handleIndex].Generation);
@@ -87,7 +88,7 @@ namespace Glai.Allocator
             
             if ((long)offsetPtr + byteSize * capacity - (long)dataPtr > dataCapacityBytes)
             {
-                throw new InvalidOperationException("Stack is out of memory.");
+                throw new InvalidOperationException("Stack allocator is out of memory.");
             }
             
             var handle = new HandleArray(id, handleIndex, (int)((long)offsetPtr - (long)dataPtr), capacity, handles[handleIndex].Generation);
