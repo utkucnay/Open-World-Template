@@ -17,17 +17,22 @@ Instead of relying on dynamic containers everywhere, this template uses:
 
 - allocator strategies (`Persist`, `Arena`, `Stack`)
 - handle-based access with generation checks
-- fixed-size collections (`FixedArray`, `FixedList`, `FixedQueue`, `FixedStack`)
+- fixed-size collections (`FixedArray`, `FixedList`, `FixedQueue`, `FixedStack`, `FixedDictionary`)
+- a module system (`ModuleManager`, `ModuleBase`) for lifecycle-managed singletons
 
 This helps avoid common runtime spikes caused by frequent allocations and container growth.
 
 ## What you get
 
-- `Assets/Module/Core` - handles and logging
-- `Assets/Module/Allocator` - allocator implementations
-- `Assets/Module/Collection` - fixed-capacity containers
-- `Assets/Module/Tween` - tween API and runtime internals
-- `Assets/Module/Gameplay` - usage example script
+- `Assets/Scripts/Core` - handles, base object, scene node, and logging
+- `Assets/Scripts/Allocator` - allocator implementations (`Persist`, `Arena`, `Stack`)
+- `Assets/Scripts/Collection` - fixed-capacity containers
+- `Assets/Scripts/Mathematics` - unit conversion helpers (`GB`, `MB`, `KB`, `B`)
+- `Assets/Scripts/Module` - module manager and lifecycle interfaces
+- `Assets/Scripts/Analytics` - memory analytics stub
+- `Assets/Scripts/Tween/Core` - tween runtime internals and state
+- `Assets/Scripts/Tween` - public tween API, sequence builder, easing
+- `Assets/Scripts/Gameplay` - usage example types
 
 ## Quick start
 
@@ -56,13 +61,33 @@ $env:UNITY_EXE = "C:\Program Files\Unity\Hub\Editor\6000.3.8f1\Editor\Unity.exe"
 
 ## Example usage
 
+### Tween a transform
+
 ```csharp
 using Glai.Tween;
 
-var handle = transform.DoMoveY(0f, 10f, 1.5f);
+// Move from current position to Y=10 over 1.5 seconds
+TweenHandle handle = transform.DoMoveY(0f, 10f, 1.5f);
 Tween.SetTweenSpeed(handle, 2f);
-yield return handle.ToYield();
 ```
+
+### Build a sequence
+
+```csharp
+using Glai.Tween;
+
+SequenceBuilder seq = Tween.CreateSequence(capacity: 4, concurrentTweenCapacity: 2);
+seq.Append(transform.DoMoveX(0f, 5f, 1f)); // step 1
+seq.Append(transform.DoMoveY(0f, 3f, 0.5f)); // step 2
+seq.Dispose(); // commits and releases arena memory
+```
+
+## Current status
+
+- Core allocator and collection primitives are in place.
+- Tween position movement is functional (`DoMove`, `DoMoveX`, `DoMoveY`, `DoMoveZ`).
+- Rotation and scale tweens exist in the dispatch structure but are not yet active.
+- No project-owned automated tests yet (recommended next step).
 
 ## Who this is for
 
