@@ -25,6 +25,18 @@ namespace Glai.Core
         {
         }
 
+        public override void Dispose()
+        {
+            if (Disposed) return;
+
+            if (UnityObject != null)
+            {
+                UnityEngine.Object.Destroy(UnityObject);
+            }
+
+            base.Dispose();
+        }
+
         public float4x4 Transform { get => UnityTransform.localToWorldMatrix; }
         public float3 Position { get => UnityTransform.position; set => UnityTransform.position = value; }
         public float3 LocalPosition { get => UnityTransform.localPosition; set => UnityTransform.localPosition = value; }

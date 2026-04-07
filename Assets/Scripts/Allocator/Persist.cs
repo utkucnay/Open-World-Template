@@ -36,6 +36,7 @@ namespace Glai.Allocator
             Name = data.name;
 
             handles = (Handle*)Marshal.AllocHGlobal(sizeof(Handle) * data.maxHandles);
+            Unsafe.InitBlock(handles, 0, (uint)(sizeof(Handle) * data.maxHandles));
             handleIndex = 0;
 
             dataPtr = Marshal.AllocHGlobal(data.capacityBytes);

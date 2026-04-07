@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Glai.Allocator;
 
 namespace Glai.Collection
@@ -110,6 +111,19 @@ namespace Glai.Collection
             {
                 if (hashes[index] == hash && keys[index].Equals(key))
                 {
+                    int next = (index + 1) % hashes.Capacity;
+
+                    while (hashes[next] != 0 && distance[next] > 0)
+                    {
+                        hashes[index] = hashes[next];
+                        keys[index] = keys[next];
+                        values[index] = values[next];
+                        distance[index] = distance[next] - 1;
+
+                        index = next;
+                        next = (next + 1) % hashes.Capacity;
+                    }
+
                     hashes[index] = 0;
                     keys[index] = default;
                     values[index] = default;
@@ -125,22 +139,6 @@ namespace Glai.Collection
                 index = (index + 1) % hashes.Capacity;
                 dist++;
             }
-
-            if (hashes[index] == 0)
-                return;
-
-            int next = (index + 1) % hashes.Capacity;
-
-            while (hashes[next] != 0 && distance[next] > 0)
-            {
-                hashes[index] = hashes[next];
-                keys[index] = keys[next];
-                values[index] = values[next];
-                distance[index] = distance[next] - 1;
-
-                index = next;
-                next = (next + 1) % hashes.Capacity;
-            }
         }
 
         public TValue Get(TKey key)
@@ -150,7 +148,7 @@ namespace Glai.Collection
                 return value;
             }
 
-            throw new System.Exception($"Key {key} not found in FixedDictionary.");
+            throw new KeyNotFoundException($"Key {key} not found in FixedDictionary.");
         }
         
         public bool TryGetValue(TKey key, out TValue value)
@@ -205,7 +203,7 @@ namespace Glai.Collection
                 dist++;
             }
 
-            throw new System.Exception($"Key {key} not found in FixedDictionary.");
+            throw new KeyNotFoundException($"Key {key} not found in FixedDictionary.");
         }
 
         public TValue this[TKey key]

@@ -41,10 +41,10 @@ namespace Glai.Tween.Core
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Add(Span<TweenHandle> concurrentTweens, MemoryState memoryState)
         {
-            var sequenceTween = new SequenceTween(concurrentTweens[0], concurrentTweens.Length, allocatorHandle, memoryState);
+            var sequenceTween = new SequenceTween(concurrentTweens[0], concurrentTweens.Length - 1, allocatorHandle, memoryState);
             for (int i = 1; i < concurrentTweens.Length; i++)
             {
-                sequenceTween.concurrentTweens[i] = concurrentTweens[i];
+                sequenceTween.concurrentTweens[i - 1] = concurrentTweens[i];
             }
             tweens.Add(sequenceTween);
         }

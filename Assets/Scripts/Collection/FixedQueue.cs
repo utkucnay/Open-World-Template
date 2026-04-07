@@ -41,7 +41,7 @@ namespace Glai.Collection
 
             if (arrayPointer == null)
             {
-                throw new InvalidOperationException("List is not initialized.");
+                throw new InvalidOperationException("Queue is not initialized.");
             }
 
             arrayPointer[tail] = value;
@@ -58,7 +58,7 @@ namespace Glai.Collection
 
             if (arrayPointer == null)
             {
-                throw new InvalidOperationException("List is not initialized.");
+                throw new InvalidOperationException("Queue is not initialized.");
             }
 
             T value = arrayPointer[head];
@@ -76,7 +76,7 @@ namespace Glai.Collection
 
             if (arrayPointer == null)
             {
-                throw new InvalidOperationException("List is not initialized.");
+                throw new InvalidOperationException("Queue is not initialized.");
             }
 
             return arrayPointer[head];

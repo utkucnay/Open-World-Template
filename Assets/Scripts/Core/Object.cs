@@ -69,7 +69,7 @@ namespace Glai.Core
             Logger.LogWarning($"[{Name} - {Id} - {state}] {message}");
         }
 
-        protected void LogError(string message, bool closeApplication = true)
+        protected void LogError(string message, bool closeApplication = false)
         {
             string logMessage = $"[{Name} - {Id} - {state}] {message}";
             Logger.LogError(logMessage);

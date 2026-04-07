@@ -73,7 +73,12 @@ namespace Glai.Module
 
         public T GetModule<T>() where T : ModuleBase
         {
-            return Modules[typeof(T)] as T;
+            if (Modules.TryGetValue(typeof(T), out var module))
+            {
+                return module as T;
+            }
+
+            throw new InvalidOperationException($"Module of type {typeof(T).Name} is not registered.");
         }
     }
 }
