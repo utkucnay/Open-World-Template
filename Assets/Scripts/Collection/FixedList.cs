@@ -1,0 +1,159 @@
+using System;
+using Glai.Core;
+using Glai.Allocator;
+using System.Runtime.CompilerServices;
+
+namespace Glai.Collection
+{
+    public unsafe struct FixedList<T> where T : unmanaged
+    {
+        int count;
+        HandleArray handle;
+        MemoryStateHandle allocatorHandle;
+        T* arrayPointer;
+
+        public int Capacity => handle.Capacity;
+
+        public FixedList(int capacity, MemoryStateHandle allocatorHandle, MemoryState memoryState)
+        {
+            this.allocatorHandle = allocatorHandle;
+            var allocator = memoryState.Get<IAllocator>(allocatorHandle);
+            handle = allocator.AllocateArray<T>(capacity);
+            arrayPointer = (T*)Unsafe.AsPointer(ref allocator.GetArray<T>(handle).GetPinnableReference());
+            count = 0;
+        }
+
+        public void Dispose(MemoryState memoryState)
+        {
+            var allocator = memoryState.Get<IAllocator>(allocatorHandle);
+            allocator.Deallocate(handle);
+            arrayPointer = null;
+            count = 0;
+        }
+
+        public void Add(T value)
+        {
+            if (count == handle.Capacity)
+            {
+                throw new InvalidOperationException("List is full.");
+            }
+
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("List is not initialized.");
+            }
+
+            arrayPointer[count] = value;
+            count++;
+        }
+
+        public void RemoveAt(int index)
+        {
+            if (index < 0 || index >= count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("List is not initialized.");
+            }
+
+            arrayPointer[index] = arrayPointer[count - 1];
+            count--;
+        }
+
+        public ref T Get(int index)
+        {
+            if (index < 0 || index >= count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("List is not initialized.");
+            }
+
+            return ref arrayPointer[index];
+        }
+
+        public void Set(int index, ref T value)
+        {
+            if (index < 0 || index >= count)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index));
+            }
+
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("List is not initialized.");
+            }
+
+            arrayPointer[index] = value;
+        }
+
+        public void Swap(int index1, int index2)
+        {
+            if (index1 < 0 || index1 >= count || index2 < 0 || index2 >= count)
+            {
+                throw new ArgumentOutOfRangeException(index1 < 0 || index1 >= count ? nameof(index1) : nameof(index2));
+            }
+
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("List is not initialized.");
+            }
+
+            T temp = arrayPointer[index1];
+            arrayPointer[index1] = arrayPointer[index2];
+            arrayPointer[index2] = temp;
+        }
+
+        public bool Contains(T value)
+        {
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("List is not initialized.");
+            }
+            for (int i = 0; i < count; i++)
+            {
+                if (arrayPointer[i].Equals(value))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        public void Clear()
+        {
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("List is not initialized.");
+            }
+
+            count = 0;
+        }
+
+        public T this[int index]
+        {
+            get { return Get(index); }
+            set { Set(index, ref value); }
+        }
+
+        public int Count
+        {
+            get { return count; }
+        }
+
+        public Span<T> AsSpan()
+        {
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("List is not initialized.");
+            }
+            return new Span<T>(arrayPointer, count);
+        }
+    }
+}

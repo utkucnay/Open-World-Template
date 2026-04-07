@@ -1,0 +1,17 @@
+{
+    "name": "Glai.Allocator",
+    "rootNamespace": "",
+    "references": [
+        "GUID:aef9c3fa12088584198934a4b7cf059c",
+        "GUID:e0cd26848372d4e5c891c569017e11f1"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
