@@ -14,7 +14,7 @@ namespace Glai.Collection
 
         public int Capacity => handle.Capacity;
 
-        public FixedList(int capacity, MemoryStateHandle allocatorHandle, MemoryState memoryState)
+        public FixedList(int capacity, in MemoryStateHandle allocatorHandle, MemoryState memoryState)
         {
             this.allocatorHandle = allocatorHandle;
             var allocator = memoryState.Get<IAllocator>(allocatorHandle);
@@ -31,7 +31,7 @@ namespace Glai.Collection
             count = 0;
         }
 
-        public void Add(T value)
+        public void Add(in T value)
         {
             if (count == handle.Capacity)
             {
@@ -78,7 +78,7 @@ namespace Glai.Collection
             return ref arrayPointer[index];
         }
 
-        public void Set(int index, ref T value)
+        public void Set(int index, in T value)
         {
             if (index < 0 || index >= count)
             {
@@ -110,7 +110,7 @@ namespace Glai.Collection
             arrayPointer[index2] = temp;
         }
 
-        public bool Contains(T value)
+        public bool Contains(in T value)
         {
             if (arrayPointer == null)
             {
@@ -139,7 +139,7 @@ namespace Glai.Collection
         public T this[int index]
         {
             get { return Get(index); }
-            set { Set(index, ref value); }
+            set { Set(index, in value); }
         }
 
         public int Count

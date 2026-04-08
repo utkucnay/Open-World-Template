@@ -12,9 +12,10 @@ namespace Glai.Collection
         MemoryStateHandle allocatorHandle;
         T* arrayPointer;
 
+        public int Length => handle.Capacity;
         public int Capacity => handle.Capacity;
 
-        public FixedArray(int capacity, MemoryStateHandle allocatorHandle, MemoryState memoryState)
+        public FixedArray(int capacity, in MemoryStateHandle allocatorHandle, MemoryState memoryState)
         {
             this.allocatorHandle = allocatorHandle;
             var allocator = memoryState.Get<IAllocator>(allocatorHandle);
@@ -44,7 +45,7 @@ namespace Glai.Collection
             return arrayPointer[index];
         }
 
-        public void Set(int index, T value)
+        public void Set(int index, in T value)
         {
             if (index < 0 || index >= handle.Capacity)
             {

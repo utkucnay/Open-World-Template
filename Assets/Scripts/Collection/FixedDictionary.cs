@@ -10,7 +10,7 @@ namespace Glai.Collection
         private FixedArray<int> hashes;
         private FixedArray<int> distance;
 
-        public FixedDictionary(int capacity, MemoryStateHandle memoryStateHandle, MemoryState memoryState)
+        public FixedDictionary(int capacity, in MemoryStateHandle memoryStateHandle, MemoryState memoryState)
         {
             if (capacity <= 0)
             {

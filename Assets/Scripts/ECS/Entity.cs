@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace Glai.Gameplay
+namespace Glai.ECS
 {
     public struct Entity
     {
