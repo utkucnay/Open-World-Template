@@ -1,8 +1,8 @@
 using System;
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using Glai.Core;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Glai.Allocator
 {
@@ -33,19 +33,19 @@ namespace Glai.Allocator
             id = Guid.NewGuid();
             Name = data.name;
 
-            handles = (Handle*)Marshal.AllocHGlobal(sizeof(Handle) * data.maxHandles);
+            handles = (Handle*)UnsafeUtility.Malloc(sizeof(Handle) * data.maxHandles, UnsafeUtility.AlignOf<Handle>(), Allocator.Persistent);
             Unsafe.InitBlock(handles, 0, (uint)(sizeof(Handle) * data.maxHandles));
             handleIndex = 0;
 
-            dataPtr = Marshal.AllocHGlobal(data.capacityBytes);
+            dataPtr = (IntPtr)UnsafeUtility.Malloc(data.capacityBytes, 16, Allocator.Persistent);
             offsetPtr = dataPtr;
             capacityBytes = data.capacityBytes;
         }
         
         public void Dispose()
         {
-            Marshal.FreeHGlobal(dataPtr);
-            Marshal.FreeHGlobal((IntPtr)handles);
+            UnsafeUtility.Free(dataPtr.ToPointer(), Allocator.Persistent);
+            UnsafeUtility.Free(handles, Allocator.Persistent);
             dataPtr = IntPtr.Zero;
             offsetPtr = IntPtr.Zero;
             handles = null;
@@ -118,7 +118,7 @@ namespace Glai.Allocator
         public T Get<T>(in Handle handle) where T : unmanaged
         {
             IntPtr handlePtr = IntPtr.Add(dataPtr, handle.ArrayIndex);
-            return Marshal.PtrToStructure<T>(handlePtr);
+            return *(T*)handlePtr.ToPointer();
         }
 
         public Span<T> GetArray<T>(in HandleArray handle) where T : unmanaged
@@ -130,7 +130,7 @@ namespace Glai.Allocator
         public void Set<T>(in Handle handle, T value) where T : unmanaged
         {
             IntPtr handlePtr = IntPtr.Add(dataPtr, handle.ArrayIndex);
-            Marshal.StructureToPtr(value, handlePtr, false);
+            *(T*)handlePtr.ToPointer() = value;
         }
 
         public void SetArray<T>(in HandleArray handle, in Span<T> values, int offset = 0) where T : unmanaged
