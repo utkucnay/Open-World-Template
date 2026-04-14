@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 namespace Glai.Collection
 {
-    public unsafe struct FixedQueue<T> where T : unmanaged
+    public unsafe struct FixedQueue<T> where T : unmanaged, IEquatable<T>
     {
         int count;
         int head;
@@ -27,6 +27,11 @@ namespace Glai.Collection
 
         public void Dispose(MemoryState memoryState)
         {
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("Queue is not initialized.");
+            }
+
             var allocator = memoryState.Get<IAllocator>(allocatorHandle);
             allocator.Deallocate(handle);
             arrayPointer = null;

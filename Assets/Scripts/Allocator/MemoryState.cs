@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
 using Glai.Allocator;
+using Glai.Allocator.Core;
 using Glai.Core;
 
 namespace Glai.Allocator
 {
-    public struct MemoryStateHandle
+    public struct MemoryStateHandle : IEquatable<MemoryStateHandle>
     {
         public Guid Id { get; private set; }
         public int ArrayIndex { get; private set; }
@@ -14,6 +15,11 @@ namespace Glai.Allocator
         {
             Id = guid;
             ArrayIndex = arrayIndex;
+        }
+
+        public bool Equals(MemoryStateHandle other)
+        {
+            return Id.Equals(other.Id) && ArrayIndex == other.ArrayIndex;
         }
     }
 

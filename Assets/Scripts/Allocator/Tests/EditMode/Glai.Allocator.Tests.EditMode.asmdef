@@ -1,0 +1,24 @@
+{
+    "name": "Glai.Allocator.Tests.EditMode",
+    "rootNamespace": "Glai.Allocator.Tests.EditMode",
+    "references": [
+        "Glai.Allocator",
+        "Glai.Allocator.Core",
+        "Glai.Core",
+        "Unity.Collections"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

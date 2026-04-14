@@ -6,7 +6,7 @@ using Unity.Burst;
 
 namespace Glai.Tween.Core
 {
-    public struct Tween<T> where T : unmanaged
+    public struct Tween<T> : IEquatable<Tween<T>> where T : unmanaged, IEquatable<T>
     {
         private FixedString128Bytes debugName;
         private T fromValue;
@@ -55,6 +55,17 @@ namespace Glai.Tween.Core
         {
             currentTime += deltaTime * speed;
             currentTime = math.min(currentTime, duration);
+        }
+
+        public bool Equals(Tween<T> other)
+        {
+            return fromValue.Equals(other.fromValue) &&
+                   toValue.Equals(other.toValue) &&
+                   duration == other.duration &&
+                   target.Equals(other.target) &&
+                   speed == other.speed &&
+                   currentTime == other.currentTime &&
+                   debugName == other.debugName;
         }
     }
 }

@@ -6,7 +6,7 @@ using System.Runtime.InteropServices;
 
 namespace Glai.Collection
 {
-    public unsafe struct FixedArray<T> where T : unmanaged
+    public unsafe struct FixedArray<T> where T : unmanaged, IEquatable<T>
     {
         HandleArray handle;
         MemoryStateHandle allocatorHandle;
@@ -23,8 +23,23 @@ namespace Glai.Collection
             arrayPointer = (T*)Unsafe.AsPointer(ref allocator.GetArray<T>(handle).GetPinnableReference());
         }
 
+        public FixedArray(int capacity, Span<T> values, in MemoryStateHandle allocatorHandle, MemoryState memoryState)
+        {
+            this.allocatorHandle = allocatorHandle;
+            var allocator = memoryState.Get<IAllocator>(allocatorHandle);
+            handle = allocator.AllocateArray<T>(capacity);
+            arrayPointer = (T*)Unsafe.AsPointer(ref allocator.GetArray<T>(handle).GetPinnableReference());
+            
+            Unsafe.CopyBlock(arrayPointer, Unsafe.AsPointer(ref values.GetPinnableReference()), (uint)(capacity * sizeof(T)));
+        }
+
         public void Dispose(MemoryState memoryState)
         {
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("Array is not initialized.");
+            }
+
             var allocator = memoryState.Get<IAllocator>(allocatorHandle);
             allocator.Deallocate(handle);
             arrayPointer = null;
@@ -75,6 +90,24 @@ namespace Glai.Collection
             T temp = arrayPointer[index1];
             arrayPointer[index1] = arrayPointer[index2];
             arrayPointer[index2] = temp;
+        }
+
+        public int FindIndex(T value)
+        {
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("Array is not initialized.");
+            }
+
+            for (int i = 0; i < handle.Capacity; i++)
+            {
+                if (arrayPointer[i].Equals(value))
+                {
+                    return i;
+                }
+            }
+            
+            return -1; // Not found
         }
 
         public T this[int index]

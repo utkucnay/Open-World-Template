@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Glai.Core
 {
-    public struct Handle
+    public struct Handle : IEquatable<Handle>
     {
         public Guid Id { get; private set; }
         public int Index { get; private set; }
@@ -29,6 +29,11 @@ namespace Glai.Core
         public bool IsValid(Handle validHandle)
         {            
             return Id == validHandle.Id && Index != -1 && Generation == validHandle.Generation;
+        }
+
+        public bool Equals(Handle other)
+        {
+            return Id == other.Id && Index == other.Index && ArrayIndex == other.ArrayIndex && Generation == other.Generation;
         }
     }
 }

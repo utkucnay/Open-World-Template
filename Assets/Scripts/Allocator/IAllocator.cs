@@ -1,16 +1,9 @@
 using System;
+using Glai.Allocator.Core;
 using Glai.Core;
-using Unity.Collections;
 
 namespace Glai.Allocator
 {
-    public interface IAllocatorBase : IDisposable
-    {
-        FixedString128Bytes Name { get; }
-        int Count { get; }
-        int Capacity { get; }
-    }
-
     public interface IAllocator : IAllocatorBase 
     {
         Handle Allocate<T>() where T : unmanaged;

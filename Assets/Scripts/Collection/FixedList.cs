@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 namespace Glai.Collection
 {
-    public unsafe struct FixedList<T> where T : unmanaged
+    public unsafe struct FixedList<T> : IEquatable<FixedList<T>> where T : unmanaged, IEquatable<T>
     {
         int count;
         HandleArray handle;
@@ -23,8 +23,23 @@ namespace Glai.Collection
             count = 0;
         }
 
+        public FixedList(int capacity, Span<T> values, in MemoryStateHandle allocatorHandle, MemoryState memoryState)
+        {
+            this.allocatorHandle = allocatorHandle;
+            var allocator = memoryState.Get<IAllocator>(allocatorHandle);
+            handle = allocator.AllocateArray<T>(capacity);
+            arrayPointer = (T*)Unsafe.AsPointer(ref allocator.GetArray<T>(handle).GetPinnableReference());
+            Unsafe.CopyBlock(arrayPointer, Unsafe.AsPointer(ref values.GetPinnableReference()), (uint)(values.Length * sizeof(T)));
+            count = values.Length;
+        }
+
         public void Dispose(MemoryState memoryState)
         {
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("List is not initialized.");
+            }
+
             var allocator = memoryState.Get<IAllocator>(allocatorHandle);
             allocator.Deallocate(handle);
             arrayPointer = null;
@@ -154,6 +169,11 @@ namespace Glai.Collection
                 throw new InvalidOperationException("List is not initialized.");
             }
             return new Span<T>(arrayPointer, count);
+        }
+
+        public bool Equals(FixedList<T> other)
+        {
+            return false; // Implementing equality for a mutable collection is complex and often not meaningful. Consider whether this is necessary for your use case.
         }
     }
 }

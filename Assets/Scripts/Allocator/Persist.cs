@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Glai.Analytics;
 using Glai.Core;
 using Unity.Collections;
 
@@ -22,6 +23,7 @@ namespace Glai.Allocator
         int dataCapacityBytes;
 
         Handle* handles;
+        int maxHandle;
         int handleIndex;
 
         public FixedString128Bytes Name { get; private set; }
@@ -38,10 +40,14 @@ namespace Glai.Allocator
             handles = (Handle*)Marshal.AllocHGlobal(sizeof(Handle) * data.maxHandles);
             Unsafe.InitBlock(handles, 0, (uint)(sizeof(Handle) * data.maxHandles));
             handleIndex = 0;
+            maxHandle = data.maxHandles;
 
             dataPtr = Marshal.AllocHGlobal(data.capacityBytes);
+            Unsafe.InitBlock(dataPtr.ToPointer(), 0, (uint)data.capacityBytes);
             dataCapacityBytes = data.capacityBytes;
             offsetPtr = dataPtr;
+
+            MemoryAnalytics.RegisterAllocator(this);
         }
 
         ~Persist()
@@ -56,11 +62,13 @@ namespace Glai.Allocator
         {
             if (IsDisposed) return;
 
-            Marshal.FreeHGlobal(dataPtr);
+            MemoryAnalytics.UnregisterAllocator(this);
+            Marshal.FreeHGlobal(dataPtr);   
             Marshal.FreeHGlobal((IntPtr)handles);
             dataPtr = IntPtr.Zero;
             offsetPtr = IntPtr.Zero;
             handles = null;
+            maxHandle = 0;
             IsDisposed = true;
         }
 
@@ -71,6 +79,11 @@ namespace Glai.Allocator
             if ((long)offsetPtr + byteSize - (long)dataPtr > dataCapacityBytes)
             {
                 throw new InvalidOperationException("Persist allocator is out of memory.");
+            }
+
+            if (handleIndex >= maxHandle)
+            {
+                throw new InvalidOperationException("Persist allocator has reached maximum handle count.");
             }
 
             var handle = new Handle(id, handleIndex, (int)((long)offsetPtr - (long)dataPtr), handles[handleIndex].Generation);
@@ -89,6 +102,11 @@ namespace Glai.Allocator
                 throw new InvalidOperationException("Persist allocator is out of memory.");
             }
 
+            if (handleIndex >= maxHandle)
+            {
+                throw new InvalidOperationException("Persist allocator has reached maximum handle count.");
+            }
+
             var handle = new HandleArray(id, handleIndex, (int)((long)offsetPtr - (long)dataPtr), capacity, handles[handleIndex].Generation);
             handles[handleIndex] = new Handle(id, handleIndex, (int)((long)offsetPtr - (long)dataPtr), handles[handleIndex].Generation);
             handleIndex++;
@@ -98,12 +116,12 @@ namespace Glai.Allocator
 
         public void Deallocate(in Handle handle)
         {
-            throw new InvalidOperationException("Persist allocator doesn't support deallocation.");
+            Logger.LogWarning("Persist allocator doesn't support deallocation.");
         }
 
         public void Deallocate(in HandleArray handle)
         {
-            throw new InvalidOperationException("Persist allocator doesn't support deallocation.");
+            Logger.LogWarning("Persist allocator doesn't support deallocation.");
         }
 
         public T Get<T>(in Handle handle) where T : unmanaged

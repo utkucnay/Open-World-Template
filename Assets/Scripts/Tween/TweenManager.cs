@@ -1,4 +1,5 @@
 using System;
+using Glai.Allocator;
 using Glai.Core;
 using Glai.Module;
 using Glai.Tween.Core;
@@ -19,6 +20,13 @@ namespace Glai.Tween
             positionDispatcher.Dispatch(deltaTime);
             //rotationDispatcher.Dispatch(deltaTime);
             //scaleDispatcher.Dispatch(deltaTime);
+        }
+
+        internal void Dispose(MemoryState memoryState)
+        {
+            positionDispatcher.Dispose(memoryState);
+            //rotationDispatcher.Dispose(memoryState);
+            //scaleDispatcher.Dispose(memoryState);
         }
     }
 
@@ -48,6 +56,18 @@ namespace Glai.Tween
             
             sequenceDispatcher = new SequenceDispatcher(100, tweenState.tweenPersistHandle, tweenState);
             GlobalSpeed = 1f;
+        }
+
+        public override void Dispose()
+        {
+            if (Disposed) return;
+
+            tweenDispatch.Dispose(tweenState);
+            sequenceDispatcher.Dispose(tweenState);
+
+            tweenState.Dispose();
+
+            base.Dispose();
         }
 
         public void SetTweenSpeed(TweenHandle handle, float speed)
@@ -101,7 +121,7 @@ namespace Glai.Tween
 
         public TweenHandle AddPositionTween(float3 from, float3 to, float duration, Transform transform)
         {
-            int transformId = tweenDispatch.positionDispatcher.AddTransform(transform);
+            EntityId transformId = tweenDispatch.positionDispatcher.AddTransform(transform);
             var target = new TweenTarget(transformId, TweenTarget.TargetType.Transform, TweenTarget.PropertyType.Position);
             return tweenDispatch.positionDispatcher.AddTween(from, to, duration, target, "PositionTween");
         }

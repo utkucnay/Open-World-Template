@@ -5,7 +5,7 @@ using System.Runtime.CompilerServices;
 
 namespace Glai.Collection
 {
-    public unsafe struct FixedStack<T> where T : unmanaged
+    public unsafe struct FixedStack<T> where T : unmanaged, IEquatable<T>
     {
         int count;
         HandleArray handle;
@@ -25,9 +25,14 @@ namespace Glai.Collection
 
         public void Dispose(MemoryState memoryState)
         {
-            var allocator = memoryState.Get<IAllocator>(allocatorHandle);
-            allocator.Deallocate(handle);
-            arrayPointer = null;
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("Stack is not initialized.");
+            }
+
+             var allocator = memoryState.Get<IAllocator>(allocatorHandle);
+             allocator.Deallocate(handle);
+             arrayPointer = null;
         }
 
         public void Push(T value)
@@ -77,9 +82,44 @@ namespace Glai.Collection
             return arrayPointer[count - 1];
         }
 
+        public bool Contains(T value)
+        {
+            if (arrayPointer == null)
+            {
+                throw new InvalidOperationException("Stack is not initialized.");
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                if (arrayPointer[i].Equals(value))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         public void Clear()
         {
             count = 0;
+        }
+
+        public T this[int index]
+        {
+            get
+            {
+                if (index < 0 || index >= count)
+                {
+                    throw new ArgumentOutOfRangeException(nameof(index));
+                }
+
+                if (arrayPointer == null)
+                {
+                    throw new InvalidOperationException("Stack is not initialized.");
+                }
+
+                return arrayPointer[index];
+            }
         }
     }
 }

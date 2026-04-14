@@ -7,9 +7,9 @@ namespace Glai.Module
 {
     public class ModuleManager : MonoBehaviour
     {
-        public Dictionary<System.Type, ModuleBase> Modules { get; private set; }
-        public List<IStart> StartModules { get; private set; }
-        public List<ITick> TickModules { get; private set; }
+        public Dictionary<System.Type, ModuleBase> Modules { get; private set; } = new Dictionary<System.Type, ModuleBase>();
+        public List<IStart> StartModules { get; private set; } = new List<IStart>();
+        public List<ITick> TickModules { get; private set; } = new List<ITick>();
         public static ModuleManager Instance { get; private set; }
         
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
@@ -29,9 +29,9 @@ namespace Glai.Module
 
             DontDestroyOnLoad(gameObject);
             Instance = this;
-            Modules = new Dictionary<System.Type, ModuleBase>();
-            StartModules = new List<IStart>();
-            TickModules = new List<ITick>();
+            Modules.Clear();
+            StartModules.Clear();
+            TickModules.Clear();
 
             var moduleTypes = System.AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(assembly => assembly.GetTypes())
@@ -52,6 +52,14 @@ namespace Glai.Module
                 {
                     TickModules.Add(tickModule);
                 }
+            }
+        }
+
+        private void OnDestroy()
+        {
+            if (Instance == this)
+            {
+                Instance = null;
             }
         }
 

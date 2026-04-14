@@ -67,7 +67,7 @@ namespace Glai.Tween
         void Dispatch(float deltaTime);
     }
 
-    internal class TweenDispatcher<T> : TweenObject, IDispatcher where T : unmanaged
+    internal class TweenDispatcher<T> : TweenObject, IDispatcher where T : unmanaged, IEquatable<T>
     {
         Guid guid;
         
@@ -77,7 +77,7 @@ namespace Glai.Tween
         FixedList<int> freeHandleIndices;
         int nextTweenHandleIndex;
 
-        Dictionary<int, Transform> transformMap;
+        Dictionary<EntityId, Transform> transformMap;
         
         TweenType tweenType;
         
@@ -88,7 +88,7 @@ namespace Glai.Tween
             Func<T, T, float, T> lerpFunction)
         {
             guid = Guid.NewGuid();
-            transformMap = new Dictionary<int, Transform>();
+            transformMap = new Dictionary<EntityId, Transform>();
             tweens = new FixedList<Tween<T>>(256, ITweenManager.Instance.TweenState.tweenPersistHandle, ITweenManager.Instance.TweenState);
             tweenHandles = new FixedArray<TweenHandle>(256, ITweenManager.Instance.TweenState.tweenPersistHandle, ITweenManager.Instance.TweenState);
             freeHandleIndices = new FixedList<int>(256, ITweenManager.Instance.TweenState.tweenPersistHandle, ITweenManager.Instance.TweenState);
@@ -175,12 +175,12 @@ namespace Glai.Tween
                 return false;
             }
 
-            return handle.IsValid(tweenHandles[handle.Index]);
+            return handle.IsValid(tweenHandles[handle.Index]) && tweenHandles[handle.Index].IsActive;
         }
 
-        public int AddTransform(Transform transform)
+        public EntityId AddTransform(Transform transform)
         {
-            int transformId = transform.GetInstanceID();
+            EntityId transformId = transform.GetEntityId();
             if (!transformMap.ContainsKey(transformId))
             {
                 transformMap[transformId] = transform;

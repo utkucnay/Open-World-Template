@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Glai.Analytics;
 using Glai.Core;
 using Unity.Collections;
 
@@ -22,11 +23,14 @@ namespace Glai.Allocator
         int capacityBytes;
 
         Handle* handles;
+        int maxHandle;
         int handleIndex;
 
         public FixedString128Bytes Name { get; private set; }
-        public int Count { get { return (int)((long)offsetPtr - (long)dataPtr); } }
-        public int Capacity { get { return (int)capacityBytes; } }
+        public int Count { get { return (int)((long)offsetPtr - (long)dataPtr) + (handleIndex * sizeof(Handle)); } }
+        public int Capacity { get { return (int)capacityBytes + (maxHandle * sizeof(Handle)); } }
+
+        public bool IsDisposed { get; private set; }
 
         public Arena(ArenaData data)
         {
@@ -36,19 +40,36 @@ namespace Glai.Allocator
             handles = (Handle*)Marshal.AllocHGlobal(sizeof(Handle) * data.maxHandles);
             Unsafe.InitBlock(handles, 0, (uint)(sizeof(Handle) * data.maxHandles));
             handleIndex = 0;
+            maxHandle = data.maxHandles;
 
             dataPtr = Marshal.AllocHGlobal(data.capacityBytes);
+            Unsafe.InitBlock(dataPtr.ToPointer(), 0, (uint)data.capacityBytes);
             offsetPtr = dataPtr;
             capacityBytes = data.capacityBytes;
+
+            MemoryAnalytics.RegisterAllocator(this);
+        }
+
+        ~Arena()
+        {
+            if (!IsDisposed)
+            {
+                Dispose();
+            }
         }
         
         public void Dispose()
         {
+            if (IsDisposed) return;
+            IsDisposed = true;
+
+            MemoryAnalytics.UnregisterAllocator(this);
             Marshal.FreeHGlobal(dataPtr);
             Marshal.FreeHGlobal((IntPtr)handles);
             dataPtr = IntPtr.Zero;
             offsetPtr = IntPtr.Zero;
             handles = null;
+            maxHandle = 0;
             capacityBytes = 0;
         }
 
@@ -59,6 +80,11 @@ namespace Glai.Allocator
             if ((long)offsetPtr + byteSize - (long)dataPtr > capacityBytes)
             {
                 throw new InvalidOperationException("Arena allocator is out of memory.");
+            }
+
+            if (handleIndex >= maxHandle)
+            {
+                throw new InvalidOperationException("Arena allocator has reached maximum handle count.");
             }
             
             var handle = new Handle(id, handleIndex, (int)((long)offsetPtr - (long)dataPtr), handles[handleIndex].Generation);
@@ -75,6 +101,11 @@ namespace Glai.Allocator
             if ((long)offsetPtr + byteSize * capacity - (long)dataPtr > capacityBytes)
             {
                 throw new InvalidOperationException("Arena allocator is out of memory.");
+            }
+
+            if (handleIndex >= maxHandle)
+            {
+                throw new InvalidOperationException("Arena allocator has reached maximum handle count.");
             }
 
             var handle = new HandleArray(id, handleIndex, (int)((long)offsetPtr - (long)dataPtr), capacity, handles[handleIndex].Generation);

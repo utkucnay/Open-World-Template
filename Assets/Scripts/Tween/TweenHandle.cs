@@ -12,7 +12,7 @@ namespace Glai.Tween
         Scale
     }
 
-    public struct TweenHandle
+    public struct TweenHandle : IEquatable<TweenHandle>
     {
         private Handle handle;
 
@@ -36,5 +36,10 @@ namespace Glai.Tween
         }
 
         internal bool IsValid(TweenHandle validHandle) => handle.IsValid(validHandle.handle) && Type == validHandle.Type;
+
+        public bool Equals(TweenHandle other)
+        {
+            return handle.Equals(other.handle) && Type == other.Type;
+        }
     }
 }

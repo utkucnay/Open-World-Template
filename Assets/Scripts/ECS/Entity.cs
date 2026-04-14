@@ -1,8 +1,9 @@
 using UnityEngine;
+using System;
 
 namespace Glai.ECS
 {
-    public struct Entity
+    public struct Entity : IEquatable<Entity>
     {
         public int Id { get; private set; }
         public int Generation { get; private set; }
@@ -17,6 +18,11 @@ namespace Glai.ECS
         {
             Id = id;
             Generation = generation;
+        }
+
+        public bool Equals(Entity other)
+        {
+            return Id == other.Id && Generation == other.Generation;
         }
     }
 }

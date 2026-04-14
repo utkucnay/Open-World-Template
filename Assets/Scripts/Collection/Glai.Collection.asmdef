@@ -3,7 +3,8 @@
     "rootNamespace": "Glai.Collection",
     "references": [
         "GUID:d2f8f214d56d0554d87ecef71b8b8a1c",
-        "GUID:aef9c3fa12088584198934a4b7cf059c"
+        "GUID:aef9c3fa12088584198934a4b7cf059c",
+        "GUID:77c763fffe2752f4e9ccf97263da5766"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

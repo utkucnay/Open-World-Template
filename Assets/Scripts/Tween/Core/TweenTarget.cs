@@ -1,4 +1,6 @@
 
+using UnityEngine;
+
 namespace Glai.Tween.Core
 {
     public struct TweenTarget
@@ -22,9 +24,9 @@ namespace Glai.Tween.Core
 
         public TargetType targetType;
         public PropertyType propertyType;
-        public int targetObjectId;
+        public EntityId targetObjectId;
 
-        public TweenTarget(int targetObjectId, TargetType targetType, PropertyType propertyType)
+        public TweenTarget(EntityId targetObjectId, TargetType targetType, PropertyType propertyType)
         {
             this.targetObjectId = targetObjectId;
             this.propertyType = propertyType;

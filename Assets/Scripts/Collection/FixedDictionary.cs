@@ -1,9 +1,10 @@
+using System;
 using System.Collections.Generic;
 using Glai.Allocator;
 
 namespace Glai.Collection
 {
-    public struct FixedDictionary<TKey, TValue> where TKey : unmanaged where TValue : unmanaged
+    public struct FixedDictionary<TKey, TValue> where TKey : unmanaged, IEquatable<TKey> where TValue : unmanaged, IEquatable<TValue>
     {
         private FixedArray<TKey> keys;
         private FixedArray<TValue> values;

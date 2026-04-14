@@ -1,0 +1,25 @@
+{
+    "name": "Glai.ECS.Tests.EditMode",
+    "rootNamespace": "Glai.ECS.Tests.EditMode",
+    "references": [
+        "Glai.ECS",
+        "Glai.ECS.Core",
+        "Glai.Module",
+        "Glai.Core",
+        "Unity.Collections"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

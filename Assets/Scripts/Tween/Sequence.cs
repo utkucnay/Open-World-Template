@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 
 namespace Glai.Tween.Core
 {
-    internal struct SequenceTween
+    internal struct SequenceTween : IEquatable<SequenceTween>
     {
         public TweenHandle tween;
         public FixedArray<TweenHandle> concurrentTweens;
@@ -16,9 +16,14 @@ namespace Glai.Tween.Core
             this.tween = tween;
             this.concurrentTweens = new FixedArray<TweenHandle>(concurrentTweenCount, allocatorHandle, memoryState);
         }
+
+        public bool Equals(SequenceTween other)
+        {
+            return tween.Equals(other.tween) && concurrentTweens.Equals(other.concurrentTweens);
+        }
     }
 
-    internal struct Sequence
+    internal struct Sequence : IEquatable<Sequence>
     {
         public FixedList<SequenceTween> tweens;
         public int index;
@@ -60,6 +65,11 @@ namespace Glai.Tween.Core
         public void Dispose(MemoryState memoryState)
         {
             tweens.Dispose(memoryState);
+        }
+
+        public bool Equals(Sequence other)
+        {
+            return tweens.Equals(other.tweens) && index == other.index && allocatorHandle.Equals(other.allocatorHandle);
         }
     }
 }

@@ -1,0 +1,22 @@
+{
+    "name": "Glai.Mathematics.Tests.EditMode",
+    "rootNamespace": "Glai.Mathematics.Tests.EditMode",
+    "references": [
+        "Glai.Mathematics",
+        "Unity.Collections"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

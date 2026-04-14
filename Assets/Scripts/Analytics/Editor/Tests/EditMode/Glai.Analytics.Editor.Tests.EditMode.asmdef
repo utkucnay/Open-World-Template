@@ -1,0 +1,22 @@
+{
+    "name": "Glai.Analytics.Editor.Tests.EditMode",
+    "rootNamespace": "Glai.Analytics.Editor.Tests.EditMode",
+    "references": [
+        "Glai.Analytics.Editor",
+        "Unity.Collections"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

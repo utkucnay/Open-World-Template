@@ -2,8 +2,10 @@
     "name": "Glai.Allocator",
     "rootNamespace": "",
     "references": [
+        "GUID:77c763fffe2752f4e9ccf97263da5766",
         "GUID:aef9c3fa12088584198934a4b7cf059c",
-        "GUID:e0cd26848372d4e5c891c569017e11f1"
+        "GUID:e0cd26848372d4e5c891c569017e11f1",
+        "GUID:1b57bf069ffbd864cbc74099891763be"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

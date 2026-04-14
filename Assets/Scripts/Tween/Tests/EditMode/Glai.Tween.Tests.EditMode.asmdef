@@ -1,0 +1,22 @@
+{
+    "name": "Glai.Tween.Tests.EditMode",
+    "rootNamespace": "Glai.Tween.Tests.EditMode",
+    "references": [
+        "Glai.Tween",
+        "Unity.Collections"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false,
+    "optionalUnityReferences": [
+        "TestAssemblies"
+    ]
+}

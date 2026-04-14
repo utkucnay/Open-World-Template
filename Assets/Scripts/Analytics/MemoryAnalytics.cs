@@ -1,6 +1,5 @@
-using System;
 using System.Collections.Generic;
-using Glai.Allocator;
+using Glai.Allocator.Core;
 
 namespace Glai.Analytics
 {
@@ -13,14 +12,14 @@ namespace Glai.Analytics
             collections = new LinkedList<IAllocatorBase>();
         }
 
-        public static void RegisterCollection(IAllocatorBase collection)
+        public static void RegisterAllocator(IAllocatorBase allocator)
         {
-            collections.AddLast(collection);
+            collections.AddLast(allocator);
         }
 
-        public static void UnregisterCollection(IAllocatorBase collection)
+        public static void UnregisterAllocator(IAllocatorBase allocator)
         {
-            collections.Remove(collection);
+            collections.Remove(allocator);
         }
 
         public static IReadOnlyCollection<IAllocatorBase> GetCollections()

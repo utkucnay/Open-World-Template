@@ -1,6 +1,7 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Glai.Analytics;
 using Glai.Core;
 using Unity.Collections;
 
@@ -22,11 +23,12 @@ namespace Glai.Allocator
         int dataCapacityBytes;
 
         Handle* handles;
+        int maxHandle;
         int handleIndex;
         
         public FixedString128Bytes Name { get; private set; }
-        public int Count { get { return (int)((long)offsetPtr - (long)dataPtr); } }
-        public int Capacity { get { return dataCapacityBytes; } }
+        public int Count { get { return (int)((long)offsetPtr - (long)dataPtr) + (handleIndex * sizeof(Handle)); } }
+        public int Capacity { get { return dataCapacityBytes + (maxHandle * sizeof(Handle)); } }
 
         public bool IsDisposed { get; private set; }
 
@@ -39,10 +41,14 @@ namespace Glai.Allocator
             handles = (Handle*)Marshal.AllocHGlobal(sizeof(Handle) * data.maxHandles);
             Unsafe.InitBlock(handles, 0, (uint)(sizeof(Handle) * data.maxHandles));
             handleIndex = 0;
+            maxHandle = data.maxHandles;
 
             dataPtr = Marshal.AllocHGlobal(data.capacityBytes);
+            Unsafe.InitBlock(dataPtr.ToPointer(), 0, (uint)data.capacityBytes);
             dataCapacityBytes = data.capacityBytes;
             offsetPtr = dataPtr;
+
+            MemoryAnalytics.RegisterAllocator(this);
         }
 
         ~Stack()
@@ -57,12 +63,14 @@ namespace Glai.Allocator
         {
             if (IsDisposed) return;
 
+            MemoryAnalytics.UnregisterAllocator(this);
             Marshal.FreeHGlobal(dataPtr);
             Marshal.FreeHGlobal((IntPtr)handles);
             dataPtr = IntPtr.Zero;
             offsetPtr = IntPtr.Zero;
             handles = null;
             handleIndex = 0;
+            maxHandle = 0;
             IsDisposed = true;
         }   
 
@@ -73,6 +81,11 @@ namespace Glai.Allocator
             if ((long)offsetPtr + byteSize - (long)dataPtr > dataCapacityBytes)
             {
                 throw new InvalidOperationException("Stack allocator is out of memory.");
+            }
+
+            if (handleIndex >= maxHandle)
+            {
+                throw new InvalidOperationException("Stack allocator has reached maximum handle count.");
             }
 
             var handle = new Handle(id, handleIndex, (int)((long)offsetPtr - (long)dataPtr), handles[handleIndex].Generation);
@@ -91,6 +104,11 @@ namespace Glai.Allocator
                 throw new InvalidOperationException("Stack allocator is out of memory.");
             }
             
+            if (handleIndex >= maxHandle)
+            {
+                throw new InvalidOperationException("Stack allocator has reached maximum handle count.");
+            }
+
             var handle = new HandleArray(id, handleIndex, (int)((long)offsetPtr - (long)dataPtr), capacity, handles[handleIndex].Generation);
             handles[handleIndex] = new Handle(id, handleIndex, (int)((long)offsetPtr - (long)dataPtr), handles[handleIndex].Generation);
             handleIndex++;

@@ -1,7 +1,11 @@
 {
     "name": "Glai.Analytics.Editor",
     "rootNamespace": "Glai.Analytics.Editor",
-    "references": [],
+    "references": [
+        "Glai.Analytics",
+        "Glai.Allocator.Core",
+        "Unity.Collections"
+    ],
     "includePlatforms": [
         "Editor"
     ],

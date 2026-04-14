@@ -32,7 +32,7 @@ namespace Glai.Core
         }
 
 #if UNITY_EDITOR
-        public void OnPlayModeStateChanged(UnityEditor.PlayModeStateChange state)
+        private void OnPlayModeStateChanged(UnityEditor.PlayModeStateChange state)
         {
             if (state == UnityEditor.PlayModeStateChange.ExitingPlayMode)
             {
