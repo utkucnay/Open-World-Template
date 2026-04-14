@@ -1,5 +1,4 @@
-using System;
-using System.Reflection;
+using Glai.Mathematics;
 using NUnit.Framework;
 
 namespace Glai.Mathematics.Tests.EditMode
@@ -20,34 +19,22 @@ namespace Glai.Mathematics.Tests.EditMode
 
         private static void DisableLogAndWarning()
         {
-            var loggerType = Type.GetType("Glai.Core.Logger, Glai.Core");
-            if (loggerType == null) return;
-
-            loggerType.GetProperty("EnableLog")?.SetValue(null, false);
-            loggerType.GetProperty("EnableWarning")?.SetValue(null, false);
+            Glai.Core.Logger.EnableLog = false;
+            Glai.Core.Logger.EnableWarning = false;
         }
 
         private static void ResetLoggerChannels()
         {
-            var loggerType = Type.GetType("Glai.Core.Logger, Glai.Core");
-            if (loggerType == null) return;
-
-            loggerType.GetMethod("ResetChannels")?.Invoke(null, null);
-        }
-
-        private static MethodInfo ResolveMathMethod(string name)
-        {
-            var type = Assembly.Load("Glai.Mathematics").GetType("Glai.Mathematics.Math", true);
-            return type.GetMethod(name, BindingFlags.Public | BindingFlags.Static);
+            Glai.Core.Logger.ResetChannels();
         }
 
         [Test]
         public void ByteHelpers_ConvertUsingBinaryUnits()
         {
-            int kb = (int)ResolveMathMethod("KB").Invoke(null, new object[] { 1 });
-            int mb = (int)ResolveMathMethod("MB").Invoke(null, new object[] { 1 });
-            long gb = (long)ResolveMathMethod("GB").Invoke(null, new object[] { 1 });
-            int b = (int)ResolveMathMethod("B").Invoke(null, new object[] { 7 });
+            int kb = Math.KB(1);
+            int mb = Math.MB(1);
+            long gb = Math.GB(1);
+            int b = Math.B(7);
 
             Assert.AreEqual(1024, kb);
             Assert.AreEqual(1024 * 1024, mb);
@@ -58,9 +45,9 @@ namespace Glai.Mathematics.Tests.EditMode
         [Test]
         public void ByteHelpers_ZeroInput_ReturnsZero()
         {
-            int kb = (int)ResolveMathMethod("KB").Invoke(null, new object[] { 0 });
-            int mb = (int)ResolveMathMethod("MB").Invoke(null, new object[] { 0 });
-            long gb = (long)ResolveMathMethod("GB").Invoke(null, new object[] { 0 });
+            int kb = Math.KB(0);
+            int mb = Math.MB(0);
+            long gb = Math.GB(0);
 
             Assert.AreEqual(0, kb);
             Assert.AreEqual(0, mb);

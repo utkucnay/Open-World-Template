@@ -1,4 +1,3 @@
-using System;
 using System.Reflection;
 using Glai.Analytics.Editor;
 using NUnit.Framework;
@@ -24,19 +23,13 @@ namespace Glai.Analytics.Editor.Tests.EditMode
 
         private static void DisableLogAndWarning()
         {
-            var loggerType = Type.GetType("Glai.Core.Logger, Glai.Core");
-            if (loggerType == null) return;
-
-            loggerType.GetProperty("EnableLog")?.SetValue(null, false);
-            loggerType.GetProperty("EnableWarning")?.SetValue(null, false);
+            Glai.Core.Logger.EnableLog = false;
+            Glai.Core.Logger.EnableWarning = false;
         }
 
         private static void ResetLoggerChannels()
         {
-            var loggerType = Type.GetType("Glai.Core.Logger, Glai.Core");
-            if (loggerType == null) return;
-
-            loggerType.GetMethod("ResetChannels")?.Invoke(null, null);
+            Glai.Core.Logger.ResetChannels();
         }
 
         [Test]
@@ -61,9 +54,21 @@ namespace Glai.Analytics.Editor.Tests.EditMode
                 "FormatBytes",
                 BindingFlags.NonPublic | BindingFlags.Static);
 
-            string formatted = (string)method.Invoke(null, new object[] { 2048 });
+            string formatted = (string)method.Invoke(null, new object[] { 2048L });
 
             Assert.AreEqual("2 KB", formatted);
+        }
+
+        [Test]
+        public void FormatBytes_FormatsValuesLargerThanInt32()
+        {
+            MethodInfo method = typeof(MemoryAnalyticsWindow).GetMethod(
+                "FormatBytes",
+                BindingFlags.NonPublic | BindingFlags.Static);
+
+            string formatted = (string)method.Invoke(null, new object[] { 3221225472L });
+
+            Assert.AreEqual("3 GB", formatted);
         }
     }
 }

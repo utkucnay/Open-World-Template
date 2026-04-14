@@ -21,19 +21,13 @@ namespace Glai.ECS.Core.Tests.EditMode
 
         private static void DisableLogAndWarning()
         {
-            var loggerType = Type.GetType("Glai.Core.Logger, Glai.Core");
-            if (loggerType == null) return;
-
-            loggerType.GetProperty("EnableLog")?.SetValue(null, false);
-            loggerType.GetProperty("EnableWarning")?.SetValue(null, false);
+            Glai.Core.Logger.EnableLog = false;
+            Glai.Core.Logger.EnableWarning = false;
         }
 
         private static void ResetLoggerChannels()
         {
-            var loggerType = Type.GetType("Glai.Core.Logger, Glai.Core");
-            if (loggerType == null) return;
-
-            loggerType.GetMethod("ResetChannels")?.Invoke(null, null);
+            Glai.Core.Logger.ResetChannels();
         }
 
         [Test]
@@ -50,11 +44,11 @@ namespace Glai.ECS.Core.Tests.EditMode
         {
             var memoryState = new ECSMemoryState();
 
-            var handle = memoryState.PopStackHandle();
+            var handle = memoryState.PopChunkStackHandle();
 
             Assert.AreEqual(memoryState.Id, handle.Id);
 
-            memoryState.PushStackHandle(handle);
+            memoryState.PushChunkStackHandle(handle);
             memoryState.Dispose();
         }
 

@@ -1,6 +1,8 @@
 using System;
 using System.Reflection;
+using Glai.Module;
 using NUnit.Framework;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Glai.Tween.Tests.EditMode
@@ -11,120 +13,84 @@ namespace Glai.Tween.Tests.EditMode
         public void SetUp()
         {
             DisableLogAndWarning();
+            if (ModuleManager.Instance == null)
+            {
+                var go = new GameObject("ModuleManager_Test");
+                var moduleManager = go.AddComponent<ModuleManager>();
+                MethodInfo awakeMethod = typeof(ModuleManager).GetMethod("AwakeTest", BindingFlags.Instance | BindingFlags.NonPublic);
+                awakeMethod.Invoke(moduleManager, null);
+            }
         }
 
         [TearDown]
         public void TearDown()
         {
+            if (ModuleManager.Instance != null)
+            {
+                UnityEngine.Object.DestroyImmediate(ModuleManager.Instance.gameObject);
+            }
+
             ResetLoggerChannels();
         }
 
         private static void DisableLogAndWarning()
         {
-            var loggerType = Type.GetType("Glai.Core.Logger, Glai.Core");
-            if (loggerType == null) return;
-
-            loggerType.GetProperty("EnableLog")?.SetValue(null, false);
-            loggerType.GetProperty("EnableWarning")?.SetValue(null, false);
+            Glai.Core.Logger.EnableLog = false;
+            Glai.Core.Logger.EnableWarning = false;
         }
 
         private static void ResetLoggerChannels()
         {
-            var loggerType = Type.GetType("Glai.Core.Logger, Glai.Core");
-            if (loggerType == null) return;
-
-            loggerType.GetMethod("ResetChannels")?.Invoke(null, null);
-        }
-
-        private static Type TweenManagerType => Assembly.Load("Glai.Tween").GetType("Glai.Tween.TweenManager", true);
-
-        private static object CreateAndInitializeManager()
-        {
-            object manager = Activator.CreateInstance(TweenManagerType, true);
-            TweenManagerType.GetMethod("Initialize", BindingFlags.Instance | BindingFlags.Public)
-                .Invoke(manager, null);
-            return manager;
-        }
-
-        private static void DisposeManager(object manager)
-        {
-            TweenManagerType.GetMethod("Dispose", BindingFlags.Instance | BindingFlags.Public)
-                .Invoke(manager, null);
+            Glai.Core.Logger.ResetChannels();
         }
 
         [Test]
-        public void AddPositionTween_CreatesActiveHandle_AndCanBeToggled()
+        public void AddPositionTween_CreatesHandle_AndAcceptsSpeedUpdate()
         {
-            object manager = CreateAndInitializeManager();
             var go = new GameObject("TweenTarget");
             try
             {
-                MethodInfo addPositionTween = TweenManagerType.GetMethod("AddPositionTween", BindingFlags.Instance | BindingFlags.Public);
-                MethodInfo isTweenActive = TweenManagerType.GetMethod("IsTweenActive", BindingFlags.Instance | BindingFlags.Public);
-                MethodInfo setTweenActive = TweenManagerType.GetMethod("SetTweenActive", BindingFlags.Instance | BindingFlags.Public);
+                TweenHandle handle = go.transform.DoMove(new float3(0f, 0f, 0f), new float3(10f, 0f, 0f), 1f);
 
-                Type float3Type = Type.GetType("Unity.Mathematics.float3, Unity.Mathematics", true);
-                object from = Activator.CreateInstance(float3Type, new object[] { 0f, 0f, 0f });
-                object to = Activator.CreateInstance(float3Type, new object[] { 10f, 0f, 0f });
-
-                object handle = addPositionTween.Invoke(manager, new object[]
-                {
-                    from,
-                    to,
-                    1f,
-                    go.transform,
-                });
-
-                Assert.IsTrue((bool)isTweenActive.Invoke(manager, new[] { handle }));
-
-                setTweenActive.Invoke(manager, new object[] { handle, false });
-                Assert.IsFalse((bool)isTweenActive.Invoke(manager, new[] { handle }));
+                Assert.AreNotEqual(Guid.Empty, handle.Id);
+                Assert.DoesNotThrow(() => Tween.SetTweenSpeed(handle, 2f));
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail($"Exception was thrown during test execution: {ex.StackTrace}");
             }
             finally
             {
                 UnityEngine.Object.DestroyImmediate(go);
-                DisposeManager(manager);
             }
         }
 
         [Test]
         public void SetTweenSpeed_WithRotationHandle_ThrowsNotImplementedException()
         {
-            object manager = CreateAndInitializeManager();
-            try
+            var tweenAssembly = typeof(TweenHandle).Assembly;
+            Type tweenTypeEnum = tweenAssembly.GetType("Glai.Tween.TweenType", true);
+            object rotationValue = Enum.Parse(tweenTypeEnum, "Rotation");
+
+            ConstructorInfo handleCtor = typeof(TweenHandle).GetConstructor(
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                null,
+                new[] { typeof(Guid), typeof(int), typeof(int), typeof(int), tweenTypeEnum, typeof(bool), typeof(bool) },
+                null);
+            Assert.IsNotNull(handleCtor);
+
+            object rotationHandle = handleCtor.Invoke(new object[]
             {
-                Type tweenTypeEnum = TweenManagerType.Assembly.GetType("Glai.Tween.TweenType", true);
-                object rotationValue = Enum.Parse(tweenTypeEnum, "Rotation");
+                Guid.NewGuid(),
+                0,
+                0,
+                0,
+                rotationValue,
+                true,
+                true,
+            });
 
-                Type tweenHandleType = TweenManagerType.Assembly.GetType("Glai.Tween.TweenHandle", true);
-                ConstructorInfo handleCtor = tweenHandleType.GetConstructor(
-                    BindingFlags.Instance | BindingFlags.NonPublic,
-                    null,
-                    new[] { typeof(Guid), typeof(int), typeof(int), typeof(int), tweenTypeEnum, typeof(bool), typeof(bool) },
-                    null);
-
-                object rotationHandle = handleCtor.Invoke(new object[]
-                {
-                    Guid.NewGuid(),
-                    0,
-                    0,
-                    0,
-                    rotationValue,
-                    true,
-                    true,
-                });
-
-                MethodInfo setTweenSpeed = TweenManagerType.GetMethod("SetTweenSpeed", BindingFlags.Instance | BindingFlags.Public);
-
-                var ex = Assert.Throws<TargetInvocationException>(() =>
-                    setTweenSpeed.Invoke(manager, new object[] { rotationHandle, 2f }));
-
-                Assert.IsInstanceOf<NotImplementedException>(ex.InnerException);
-            }
-            finally
-            {
-                DisposeManager(manager);
-            }
+            Assert.Throws<NotImplementedException>(() => Tween.SetTweenSpeed((TweenHandle)rotationHandle, 2f));
         }
     }
 }

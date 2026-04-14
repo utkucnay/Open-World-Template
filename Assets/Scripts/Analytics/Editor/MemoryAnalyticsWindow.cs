@@ -12,8 +12,8 @@ namespace Glai.Analytics.Editor
         private sealed class AnalyticsSnapshot
         {
             public List<AllocatorGroup> Groups = new List<AllocatorGroup>();
-            public int TotalAllocated;
-            public int TotalCapacity;
+            public long TotalAllocated;
+            public long TotalCapacity;
             public int AllocatorCount;
             public DateTime CapturedAt;
         }
@@ -21,16 +21,16 @@ namespace Glai.Analytics.Editor
         private sealed class AllocatorEntry
         {
             public string DisplayName;
-            public int Allocated;
-            public int Capacity;
+            public long Allocated;
+            public long Capacity;
         }
 
         private sealed class AllocatorGroup
         {
             public string BaseName;
             public readonly List<AllocatorEntry> Entries = new List<AllocatorEntry>();
-            public int TotalAllocated;
-            public int TotalCapacity;
+            public long TotalAllocated;
+            public long TotalCapacity;
         }
 
         private Vector2 scrollPosition;
@@ -224,7 +224,7 @@ namespace Glai.Analytics.Editor
         private void CaptureSnapshot()
         {
             IReadOnlyCollection<IAllocatorBase> allocators = GetAllocators();
-            List<AllocatorGroup> groups = BuildGroups(allocators, out int totalAllocated, out int totalCapacity, out int allocatorCount);
+            List<AllocatorGroup> groups = BuildGroups(allocators, out long totalAllocated, out long totalCapacity, out int allocatorCount);
 
             snapshot = new AnalyticsSnapshot
             {
@@ -256,8 +256,8 @@ namespace Glai.Analytics.Editor
 
         private List<AllocatorGroup> BuildGroups(
             IReadOnlyCollection<IAllocatorBase> allocators,
-            out int totalAllocated,
-            out int totalCapacity,
+            out long totalAllocated,
+            out long totalCapacity,
             out int allocatorCount)
         {
             var groups = new List<AllocatorGroup>();
@@ -300,8 +300,8 @@ namespace Glai.Analytics.Editor
                     groups.Add(group);
                 }
 
-                int allocated = Mathf.Max(allocator.Count, 0);
-                int capacity = Mathf.Max(allocator.Capacity, 0);
+                long allocated = Math.Max(allocator.Count, 0);
+                long capacity = Math.Max(allocator.Capacity, 0);
 
                 var entry = new AllocatorEntry
                 {
@@ -339,7 +339,7 @@ namespace Glai.Analytics.Editor
             foldoutStates[baseName] = expanded;
         }
 
-        private static string FormatBytes(int bytes)
+        private static string FormatBytes(long bytes)
         {
             if (bytes <= 0)
             {

@@ -1,5 +1,4 @@
-using System;
-using System.Linq;
+using Glai.Gameplay;
 using NUnit.Framework;
 
 namespace Glai.Gameplay.Tests.EditMode
@@ -20,37 +19,28 @@ namespace Glai.Gameplay.Tests.EditMode
 
         private static void DisableLogAndWarning()
         {
-            var loggerType = Type.GetType("Glai.Core.Logger, Glai.Core");
-            if (loggerType == null) return;
-
-            loggerType.GetProperty("EnableLog")?.SetValue(null, false);
-            loggerType.GetProperty("EnableWarning")?.SetValue(null, false);
+            Glai.Core.Logger.EnableLog = false;
+            Glai.Core.Logger.EnableWarning = false;
         }
 
         private static void ResetLoggerChannels()
         {
-            var loggerType = Type.GetType("Glai.Core.Logger, Glai.Core");
-            if (loggerType == null) return;
-
-            loggerType.GetMethod("ResetChannels")?.Invoke(null, null);
+            Glai.Core.Logger.ResetChannels();
         }
 
         [Test]
         public void GameplayAssembly_IsPresentInCurrentAppDomain()
         {
-            var assembly = AppDomain.CurrentDomain
-                .GetAssemblies()
-                .FirstOrDefault(a => a.GetName().Name == "Glai.Gameplay");
+            var assembly = typeof(GameplayMarker).Assembly;
 
             Assert.IsNotNull(assembly);
+            Assert.AreEqual("Glai.Gameplay", assembly.GetName().Name);
         }
 
         [Test]
         public void GameplayAssembly_GetTypes_DoesNotThrow()
         {
-            var assembly = AppDomain.CurrentDomain
-                .GetAssemblies()
-                .FirstOrDefault(a => a.GetName().Name == "Glai.Gameplay");
+            var assembly = typeof(GameplayMarker).Assembly;
 
             Assert.IsNotNull(assembly);
             Assert.DoesNotThrow(() => assembly.GetTypes());

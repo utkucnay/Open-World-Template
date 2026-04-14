@@ -3,6 +3,7 @@
     "rootNamespace": "Glai.Analytics.Editor.Tests.EditMode",
     "references": [
         "Glai.Analytics.Editor",
+        "Glai.Core",
         "Unity.Collections"
     ],
     "includePlatforms": [

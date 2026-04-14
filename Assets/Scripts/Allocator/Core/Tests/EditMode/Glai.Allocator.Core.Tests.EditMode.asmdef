@@ -3,6 +3,7 @@
     "rootNamespace": "Glai.Allocator.Core.Tests.EditMode",
     "references": [
         "Glai.Allocator.Core",
+        "Glai.Core",
         "Unity.Collections"
     ],
     "includePlatforms": [

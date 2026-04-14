@@ -41,6 +41,7 @@ namespace Glai.ECS.Core
             nextComponentIndex = 0;
             componentRegionBytes = capacityBytes / componentCount;
             entityCapacity = componentRegionBytes / maxComponentSize;
+            
             if (entityCapacity <= 0)
             {
                 throw new ArgumentException($"Chunk {name} has invalid capacity. capacityBytes={capacityBytes}, componentCount={componentCount}, maxComponentSize={maxComponentSize}.");
@@ -149,7 +150,5 @@ namespace Glai.ECS.Core
         {
             return nextComponentIndex >= entityCapacity && freeComponentIndices.Count == 0;
         }
-
-        public int Capacity => entityCapacity;
     }
 }

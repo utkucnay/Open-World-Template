@@ -3,6 +3,9 @@
     "rootNamespace": "Glai.Tween.Tests.EditMode",
     "references": [
         "Glai.Tween",
+        "Glai.Module",
+        "Glai.Core",
+        "Unity.Mathematics",
         "Unity.Collections"
     ],
     "includePlatforms": [

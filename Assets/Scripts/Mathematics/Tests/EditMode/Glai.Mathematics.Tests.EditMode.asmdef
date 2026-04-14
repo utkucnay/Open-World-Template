@@ -3,6 +3,7 @@
     "rootNamespace": "Glai.Mathematics.Tests.EditMode",
     "references": [
         "Glai.Mathematics",
+        "Glai.Core",
         "Unity.Collections"
     ],
     "includePlatforms": [

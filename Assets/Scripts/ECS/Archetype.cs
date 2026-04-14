@@ -52,7 +52,6 @@ namespace Glai.ECS.Core
         private FixedStack<int> availableChunkIndices;
 
         private FixedArray<int> componentTypeIds;
-        private FixedDictionary<int, int> componentTypeToIndex;
         private int maxComponentSize;
         private int componentCount;
         private MemoryStateHandle memoryStateHandle;
@@ -65,17 +64,10 @@ namespace Glai.ECS.Core
 
             chunkList = new FixedList<Chunk>(archetypeData.maxChunkCount, memoryStateHandle, memoryState);            
             componentTypeIds = new FixedArray<int>(componentCount, archetypeData.ComponentTypeIds, memoryStateHandle, memoryState);
-            componentTypeToIndex = new FixedDictionary<int, int>(componentCount * 2, memoryStateHandle, memoryState);
             fullChunkIndices = new FixedList<int>(archetypeData.maxChunkCount, memoryStateHandle, memoryState);
             availableChunkIndices = new FixedStack<int>(archetypeData.maxChunkCount, memoryStateHandle, memoryState);
 
-            for (int i = 0; i < componentCount; i++)
-            {
-                componentTypeToIndex.Add(componentTypeIds[i], i);
-            }
-
             chunkList.Add(CreateChunk(0, memoryState));
-
             availableChunkIndices.Push(0);
         }
 
@@ -88,6 +80,19 @@ namespace Glai.ECS.Core
                 maxComponentSize = maxComponentSize,
                 componentCount = componentCount
             }, memoryStateHandle, memoryState);
+        }
+
+        public void Dispose(MemoryState memoryState)
+        {
+            for (int i = 0; i < chunkList.Count; i++)
+            {
+                chunkList[i].Dispose(memoryState);
+            }
+
+            chunkList.Dispose(memoryState);
+            componentTypeIds.Dispose(memoryState);
+            fullChunkIndices.Dispose(memoryState);
+            availableChunkIndices.Dispose(memoryState);
         }
 
         public EntityRecord AddEntity(MemoryState memoryState)
@@ -172,32 +177,218 @@ namespace Glai.ECS.Core
             return ref chunkList[entityRecord.ChunkIndex].GetComponent<T>(componentIndex, entityRecord.ComponentIndex);
         }
 
-        public bool ContainsComponentType(int componentTypeId)
+        public bool HasComponent<T>() where T : unmanaged, IComponent
         {
-            return componentTypeToIndex.ContainsKey(componentTypeId);
+            return GetComponentStorageIndex(TypeId<T>.Id) != -1;
         }
 
-        public int ComponentCount => componentCount;
+        public bool HasComponentTypeId(int componentTypeId)
+        {
+            return GetComponentStorageIndex(componentTypeId) != -1;
+        }
+
+        public bool HasAll<T1>()
+            where T1 : unmanaged, IComponent
+        {
+            return HasComponent<T1>();
+        }
+
+        public bool HasAll<T1, T2>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() && HasComponent<T2>();
+        }
+
+        public bool HasAll<T1, T2, T3>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() && HasComponent<T2>() && HasComponent<T3>();
+        }
+
+        public bool HasAll<T1, T2, T3, T4>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() && HasComponent<T2>() && HasComponent<T3>() && HasComponent<T4>();
+        }
+
+        public bool HasAll<T1, T2, T3, T4, T5>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+            where T5 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() && HasComponent<T2>() && HasComponent<T3>() && HasComponent<T4>() && HasComponent<T5>();
+        }
+
+        public bool HasAll<T1, T2, T3, T4, T5, T6>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+            where T5 : unmanaged, IComponent
+            where T6 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() && HasComponent<T2>() && HasComponent<T3>() && HasComponent<T4>() && HasComponent<T5>() && HasComponent<T6>();
+        }
+
+        public bool HasAll<T1, T2, T3, T4, T5, T6, T7>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+            where T5 : unmanaged, IComponent
+            where T6 : unmanaged, IComponent
+            where T7 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() && HasComponent<T2>() && HasComponent<T3>() && HasComponent<T4>() && HasComponent<T5>() && HasComponent<T6>() && HasComponent<T7>();
+        }
+
+        public bool HasAny<T1>()
+            where T1 : unmanaged, IComponent
+        {
+            return HasComponent<T1>();
+        }
+
+        public bool HasAny<T1, T2>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() || HasComponent<T2>();
+        }
+
+        public bool HasAny<T1, T2, T3>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() || HasComponent<T2>() || HasComponent<T3>();
+        }
+
+        public bool HasAny<T1, T2, T3, T4>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() || HasComponent<T2>() || HasComponent<T3>() || HasComponent<T4>();
+        }
+
+        public bool HasAny<T1, T2, T3, T4, T5>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+            where T5 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() || HasComponent<T2>() || HasComponent<T3>() || HasComponent<T4>() || HasComponent<T5>();
+        }
+
+        public bool HasAny<T1, T2, T3, T4, T5, T6>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+            where T5 : unmanaged, IComponent
+            where T6 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() || HasComponent<T2>() || HasComponent<T3>() || HasComponent<T4>() || HasComponent<T5>() || HasComponent<T6>();
+        }
+
+        public bool HasAny<T1, T2, T3, T4, T5, T6, T7>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+            where T5 : unmanaged, IComponent
+            where T6 : unmanaged, IComponent
+            where T7 : unmanaged, IComponent
+        {
+            return HasComponent<T1>() || HasComponent<T2>() || HasComponent<T3>() || HasComponent<T4>() || HasComponent<T5>() || HasComponent<T6>() || HasComponent<T7>();
+        }
+
+        public bool HasNone<T1>()
+            where T1 : unmanaged, IComponent
+        {
+            return !HasComponent<T1>();
+        }
+
+        public bool HasNone<T1, T2>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+        {
+            return !HasAny<T1, T2>();
+        }
+
+        public bool HasNone<T1, T2, T3>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+        {
+            return !HasAny<T1, T2, T3>();
+        }
+
+        public bool HasNone<T1, T2, T3, T4>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+        {
+            return !HasAny<T1, T2, T3, T4>();
+        }
+
+        public bool HasNone<T1, T2, T3, T4, T5>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+            where T5 : unmanaged, IComponent
+        {
+            return !HasAny<T1, T2, T3, T4, T5>();
+        }
+
+        public bool HasNone<T1, T2, T3, T4, T5, T6>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+            where T5 : unmanaged, IComponent
+            where T6 : unmanaged, IComponent
+        {
+            return !HasAny<T1, T2, T3, T4, T5, T6>();
+        }
+
+        public bool HasNone<T1, T2, T3, T4, T5, T6, T7>()
+            where T1 : unmanaged, IComponent
+            where T2 : unmanaged, IComponent
+            where T3 : unmanaged, IComponent
+            where T4 : unmanaged, IComponent
+            where T5 : unmanaged, IComponent
+            where T6 : unmanaged, IComponent
+            where T7 : unmanaged, IComponent
+        {
+            return !HasAny<T1, T2, T3, T4, T5, T6, T7>();
+        }
 
         private int GetComponentStorageIndex(int componentTypeId)
         {
-            return componentTypeToIndex.TryGetValue(componentTypeId, out int componentIndex) ? componentIndex : -1;
-        }
-
-        public void Dispose(MemoryState memoryState)
-        {
-            for (int i = 0; i < chunkList.Count; i++)
+            for (int i = 0; i < componentCount; i++)
             {
-                chunkList[i].Dispose(memoryState);
+                if (componentTypeIds[i] == componentTypeId)
+                {
+                    return i;
+                }
             }
-
-            chunkList.Dispose(memoryState);
-            componentTypeIds.Dispose(memoryState);
-            componentTypeToIndex.Dispose(memoryState);
-            fullChunkIndices.Dispose(memoryState);
-            availableChunkIndices.Dispose(memoryState);
+            return -1;
         }
 
+        
         public bool Equals(Archetype other)
         {
             if (componentCount != other.componentCount || maxComponentSize != other.maxComponentSize)

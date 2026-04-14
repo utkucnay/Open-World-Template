@@ -24,7 +24,7 @@ namespace Glai.Tween.Core
             {
                 name = "TweenState",
                 capacityBytes = Math.MB(10),
-                maxHandles = 1000000
+                maxHandles = 100
             }));
 
             tweenSequenceArenaHandle = new FixedStack<MemoryStateHandle>(100, tweenPersistHandle, this);
@@ -34,7 +34,7 @@ namespace Glai.Tween.Core
                 {
                     name = $"TweenSequenceArena_{i}",
                     capacityBytes = Math.KB(16),
-                    maxHandles = 1000000
+                    maxHandles = 100
                 })));
             }
         }

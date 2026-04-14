@@ -55,6 +55,36 @@ namespace Glai.Module
             }
         }
 
+
+        private void AwakeTest()
+        {
+            Instance = this;
+            Modules.Clear();
+            StartModules.Clear();
+            TickModules.Clear();
+
+            var moduleTypes = System.AppDomain.CurrentDomain.GetAssemblies()
+                .SelectMany(assembly => assembly.GetTypes())
+                .Where(type => type.IsClass && !type.IsAbstract && typeof(ModuleBase).IsAssignableFrom(type) && type.GetCustomAttributes(typeof(ModuleRegisterAttribute), false).Length > 0);
+            
+            foreach (var moduleType in moduleTypes)
+            {                
+                var module = (ModuleBase)System.Activator.CreateInstance(moduleType);
+                Modules.Add(moduleType, module);
+                module.Initialize();
+
+                if (module is IStart startModule)
+                {
+                    StartModules.Add(startModule);
+                }
+
+                if (module is ITick tickModule)
+                {
+                    TickModules.Add(tickModule);
+                }
+            }
+        }
+
         private void OnDestroy()
         {
             if (Instance == this)

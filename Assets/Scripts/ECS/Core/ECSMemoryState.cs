@@ -8,41 +8,46 @@ namespace Glai.ECS.Core
     {
         public MemoryStateHandle persistHandle { get; private set; }
 
-        private FixedStack<MemoryStateHandle> stackHandle;
+        private FixedStack<MemoryStateHandle> chunkStackHandles;
+        private FixedStack<MemoryStateHandle> queryBuilderHandles;
         const int maxStackCount = 100;
-        int createdStackCount;
+        int createdChunkStackCount;
+        int createdQueryBuilderStackCount;
 
         public ECSMemoryState()
         {
             persistHandle = AddAllocator(new Persist(new PersistData(){
                 name = "ECS_Persist",
-                capacityBytes = Math.MB(450),
+                capacityBytes = Math.MB(10),
                 maxHandles = 1000
             }));
 
-            stackHandle = new FixedStack<MemoryStateHandle>(maxStackCount, persistHandle, this);
-            createdStackCount = 0;
+            chunkStackHandles = new FixedStack<MemoryStateHandle>(maxStackCount, persistHandle, this);
+            queryBuilderHandles = new FixedStack<MemoryStateHandle>(maxStackCount, persistHandle, this);
+            createdChunkStackCount = 0;
+            createdQueryBuilderStackCount = 0;
         }
 
         public override void Dispose()
         {
             if (Disposed) return;
 
-            stackHandle.Dispose(this);
+            chunkStackHandles.Dispose(this);
+            queryBuilderHandles.Dispose(this);
             base.Dispose();
         }
 
-        public MemoryStateHandle PopStackHandle()
+        public MemoryStateHandle PopChunkStackHandle()
         {
-            if (stackHandle.Count > 0)
+            if (chunkStackHandles.Count > 0)
             {
-                return stackHandle.Pop();
+                return chunkStackHandles.Pop();
             }
 
-            if (createdStackCount < maxStackCount)
+            if (createdChunkStackCount < maxStackCount)
             {
-                int stackIndex = createdStackCount;
-                createdStackCount++;
+                int stackIndex = createdChunkStackCount;
+                createdChunkStackCount++;
 
                 return AddAllocator(new Stack(new StackData()
                 {
@@ -56,9 +61,38 @@ namespace Glai.ECS.Core
             return default;
         }
 
-        public void PushStackHandle(MemoryStateHandle handle)
+        public void PushChunkStackHandle(MemoryStateHandle handle)
         {
-            stackHandle.Push(handle);
+            chunkStackHandles.Push(handle);
+        }
+
+        public MemoryStateHandle PopQueryBuilderHandle()
+        {
+            if (queryBuilderHandles.Count > 0)
+            {
+                return queryBuilderHandles.Pop();
+            }
+
+            if (createdQueryBuilderStackCount < maxStackCount)
+            {
+                int stackIndex = createdQueryBuilderStackCount;
+                createdQueryBuilderStackCount++;
+
+                return AddAllocator(new Stack(new StackData()
+                {
+                    name = $"ECS_QueryBuilder_{stackIndex}",
+                    capacityBytes = Math.KB(32),
+                    maxHandles = 1000000
+                }));
+            }
+
+            LogError("No more query builder allocators available in ECSMemoryState.");
+            return default;
+        }
+
+        public void PushQueryBuilderHandle(MemoryStateHandle handle)
+        {
+            queryBuilderHandles.Push(handle);
         }
     }
 }

@@ -6,7 +6,7 @@ using Glai.Module;
 namespace Glai.ECS
 {
     [ModuleRegister]
-    public class EntityManager : ModuleBase, IEntityManager
+    public partial class EntityManager : ModuleBase, IEntityManager
     {
         FixedList<Archetype> archeTypes;
         FixedList<EntityRecord> entityRecords;
@@ -25,6 +25,19 @@ namespace Glai.ECS
             entityRecords = new FixedList<EntityRecord>(100, ecsMemoryState.persistHandle, ecsMemoryState);
             entities = new FixedList<Entity>(100, ecsMemoryState.persistHandle, ecsMemoryState);
             recycledEntityIds = new FixedStack<int>(100, ecsMemoryState.persistHandle, ecsMemoryState);
+        }
+
+        public override void Dispose()
+        {
+            if (Disposed) return;
+
+            archeTypes.Dispose(ecsMemoryState);
+            entityRecords.Dispose(ecsMemoryState);
+            entities.Dispose(ecsMemoryState);
+            recycledEntityIds.Dispose(ecsMemoryState);
+            ecsMemoryState.Dispose();
+            IEntityManager.Instance = null;
+            base.Dispose();
         }
 
 #region Archetype Creation
@@ -92,6 +105,39 @@ namespace Glai.ECS
             archeTypes.Add(archetype);
             return archeTypes.Count - 1;
         }
+
+        public int CreateArchetype<T1, T2, T3, T4, T5, T6>(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6) where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent where T3 : unmanaged, IComponent where T4 : unmanaged, IComponent where T5 : unmanaged, IComponent where T6 : unmanaged, IComponent
+        {
+            Span<int> componentTypeIds = stackalloc int[6];
+            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds);
+            archetypeData.AddComponent<T1>();
+            archetypeData.AddComponent<T2>();
+            archetypeData.AddComponent<T3>();
+            archetypeData.AddComponent<T4>();
+            archetypeData.AddComponent<T5>();
+            archetypeData.AddComponent<T6>();
+
+            var archetype = new Archetype(archetypeData, ecsMemoryState.persistHandle, ecsMemoryState);
+            archeTypes.Add(archetype);
+            return archeTypes.Count - 1;
+        }
+
+        public int CreateArchetype<T1, T2, T3, T4, T5, T6, T7>(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, T7 t7) where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent where T3 : unmanaged, IComponent where T4 : unmanaged, IComponent where T5 : unmanaged, IComponent where T6 : unmanaged, IComponent where T7 : unmanaged, IComponent
+        {
+            Span<int> componentTypeIds = stackalloc int[7];
+            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds);
+            archetypeData.AddComponent<T1>();
+            archetypeData.AddComponent<T2>();
+            archetypeData.AddComponent<T3>();
+            archetypeData.AddComponent<T4>();
+            archetypeData.AddComponent<T5>();
+            archetypeData.AddComponent<T6>();
+            archetypeData.AddComponent<T7>();
+
+            var archetype = new Archetype(archetypeData, ecsMemoryState.persistHandle, ecsMemoryState);
+            archeTypes.Add(archetype);
+            return archeTypes.Count - 1;
+        }
 #endregion
 
         public Entity CreateEntity(int archetypeIndex)
@@ -115,63 +161,17 @@ namespace Glai.ECS
             {
                 int recycledEntityId = recycledEntityIds.Pop();
 
-                try
-                {
-                    entityRecords[recycledEntityId] = entityRecord;
-                    return entities[recycledEntityId];
-                }
-                catch
-                {
-                    recycledEntityIds.Push(recycledEntityId);
-                    archetype.RemoveEntity(entityRecord);
-                    throw;
-                }
+                entityRecords[recycledEntityId] = entityRecord;
+                return entities[recycledEntityId];
             }
 
             int entityRecordIndex = entityRecords.Count;
 
-            try
-            {
-                entityRecords.Add(entityRecord);
-            }
-            catch
-            {
-                archetype.RemoveEntity(entityRecord);
-                throw;
-            }
+            entityRecords.Add(entityRecord);
 
-            try
-            {
-                var entity = new Entity(entityRecordIndex);
-                entities.Add(entity);
-                return entity;
-            }
-            catch
-            {
-                entityRecords.RemoveAt(entityRecordIndex);
-                archetype.RemoveEntity(entityRecord);
-                throw;
-            }
-        }
-
-        public T GetComponent<T>(Entity entity) where T : unmanaged, IComponent
-        {
-            return GetComponentRef<T>(entity);
-        }
-
-        public ref T GetComponentRef<T>(Entity entity) where T : unmanaged, IComponent
-        {
-            if (!IsValid(entity)) throw new InvalidOperationException("Invalid entity.");
-
-            var entityRecord = entityRecords[entity.Id];
-            return ref archeTypes[entityRecord.ArchetypeIndex].GetComponent<T>(entityRecord);
-        }
-
-        public bool IsValid(Entity entity)
-        {
-            if (entity.Id < 0 || entity.Id >= entities.Count) return false;
-            if (entities[entity.Id].Generation != entity.Generation) return false;
-            return true;
+            var entity = new Entity(entityRecordIndex);
+            entities.Add(entity);
+            return entity;
         }
 
         public void DestroyEntity(Entity entity)
@@ -190,27 +190,34 @@ namespace Glai.ECS
             recycledEntityIds.Push(entityId);
         }
 
-        public override void Dispose()
+        public T GetComponent<T>(Entity entity) where T : unmanaged, IComponent
         {
-            if (Disposed) return;
-
-            archeTypes.Dispose(ecsMemoryState);
-            entityRecords.Dispose(ecsMemoryState);
-            entities.Dispose(ecsMemoryState);
-            recycledEntityIds.Dispose(ecsMemoryState);
-            ecsMemoryState.Dispose();
-            IEntityManager.Instance = null;
-            base.Dispose();
+            return GetComponentRef<T>(entity);
         }
 
-        public bool ArchetypeMatches(Query query, int archetypeIndex)
+        public ref T GetComponentRef<T>(Entity entity) where T : unmanaged, IComponent
         {
-            if (archetypeIndex < 0 || archetypeIndex >= archeTypes.Count)
-            {
-                throw new ArgumentOutOfRangeException(nameof(archetypeIndex), $"Invalid archetype index {archetypeIndex}.");
-            }
+            if (!IsValid(entity)) throw new InvalidOperationException("Invalid entity.");
 
-            return query.Matches(archeTypes[archetypeIndex]);
+            var entityRecord = entityRecords[entity.Id];
+            return ref archeTypes[entityRecord.ArchetypeIndex].GetComponent<T>(entityRecord);
         }
+
+        public Span<T> GetComponents<T>(Entity entity) where T : unmanaged, IComponent
+        {
+            if (!IsValid(entity)) throw new InvalidOperationException("Invalid entity.");
+
+            var entityRecord = entityRecords[entity.Id];
+            return archeTypes[entityRecord.ArchetypeIndex].GetComponents<T>(entityRecord.ChunkIndex);
+        }
+
+        public bool IsValid(Entity entity)
+        {
+            if (entity.Id < 0 || entity.Id >= entities.Count) return false;
+            if (recycledEntityIds.Contains(entity.Id)) return false;
+            if (entities[entity.Id].Generation != entity.Generation) return false;
+            return true;
+        }
+
     }
 }
