@@ -153,24 +153,27 @@ namespace Glai.ECS
                 throw new InvalidOperationException("Entity storage is full.");
             }
 
-            ref var archetype = ref archeTypes.Get(archetypeIndex);
-            var entityRecord = archetype.AddEntity(ecsMemoryState);
-            entityRecord.ArchetypeIndex = archetypeIndex;
+            int entityId;
+            Entity entity;
 
             if (canRecycleEntityId)
             {
-                int recycledEntityId = recycledEntityIds.Pop();
-
-                entityRecords[recycledEntityId] = entityRecord;
-                return entities[recycledEntityId];
+                entityId = recycledEntityIds.Pop();
+                entity = entities[entityId];
+            }
+            else
+            {
+                entityId = entities.Count;
+                entity = new Entity(entityId);
+                entities.Add(entity);
+                entityRecords.Add(default);
             }
 
-            int entityRecordIndex = entityRecords.Count;
+            ref var archetype = ref archeTypes.Get(archetypeIndex);
+            var entityRecord = archetype.AddEntity(ecsMemoryState, entityId);
+            entityRecord.ArchetypeIndex = archetypeIndex;
+            entityRecords[entityId] = entityRecord;
 
-            entityRecords.Add(entityRecord);
-
-            var entity = new Entity(entityRecordIndex);
-            entities.Add(entity);
             return entity;
         }
 
@@ -184,7 +187,13 @@ namespace Glai.ECS
             int entityId = entity.Id;
             var entityRecord = entityRecords[entityId];
             ref var archetype = ref archeTypes.Get(entityRecord.ArchetypeIndex);
-            archetype.RemoveEntity(entityRecord);
+            int swappedEntityId = archetype.RemoveEntity(entityRecord);
+
+            if (swappedEntityId != -1)
+            {
+                ref var swappedRecord = ref entityRecords.Get(swappedEntityId);
+                swappedRecord.ComponentIndex = entityRecord.ComponentIndex;
+            }
 
             entities[entityId] = new Entity(entityId, entity.Generation + 1);
             recycledEntityIds.Push(entityId);
@@ -203,14 +212,6 @@ namespace Glai.ECS
             return ref archeTypes[entityRecord.ArchetypeIndex].GetComponent<T>(entityRecord);
         }
 
-        public Span<T> GetComponents<T>(Entity entity) where T : unmanaged, IComponent
-        {
-            if (!IsValid(entity)) throw new InvalidOperationException("Invalid entity.");
-
-            var entityRecord = entityRecords[entity.Id];
-            return archeTypes[entityRecord.ArchetypeIndex].GetComponents<T>(entityRecord.ChunkIndex);
-        }
-
         public bool IsValid(Entity entity)
         {
             if (entity.Id < 0 || entity.Id >= entities.Count) return false;
@@ -219,5 +220,20 @@ namespace Glai.ECS
             return true;
         }
 
+        public QueryBuilder Query()
+        {
+            return new QueryBuilder(ecsMemoryState.PopQueryBuilderHandle(), ecsMemoryState);
+        }
+
+        public void DisposeQuery(ref QueryBuilder query)
+        {
+            if (query.disposed) return;
+
+            query.noneTypeIds.Dispose(ecsMemoryState);
+            query.anyTypeIds.Dispose(ecsMemoryState);
+            query.allTypeIds.Dispose(ecsMemoryState);
+            ecsMemoryState.PushQueryBuilderHandle(query.memoryStateHandle);
+            query.disposed = true;
+        }
     }
 }

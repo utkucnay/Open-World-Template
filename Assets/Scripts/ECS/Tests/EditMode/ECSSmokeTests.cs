@@ -2,6 +2,7 @@ using System;
 using Glai.ECS;
 using Glai.ECS.Core;
 using NUnit.Framework;
+using Unity.Burst;
 
 namespace Glai.ECS.Tests.EditMode
 {
@@ -198,8 +199,17 @@ namespace Glai.ECS.Tests.EditMode
             manager.Dispose();
         }
 
+        [BurstCompile]
+        private struct AddTenJob : IQueryJob<Position>
+        {
+            public void Execute(ref Position c1)
+            {
+                c1.Value += 10;
+            }
+        }
+
         [Test]
-        public void EntityManager_Query_WithAllSingleComponent_StaticLambdaMutatesComponent()
+        public void EntityManager_Query_WithAllSingleComponent_JobMutatesComponent()
         {
             var manager = new EntityManager();
             manager.Initialize();
@@ -208,15 +218,25 @@ namespace Glai.ECS.Tests.EditMode
             var entity = manager.CreateEntity(archetype);
             manager.GetComponentRef<Position>(entity).Value = 5;
 
-            manager.Query()
-                .WithAll<Position>()
-                .ForEach(static (ref Position position) =>
-                {
-                    position.Value += 10;
-                });
+            var query = manager.Query().WithAll<Position>();
+            var job = new AddTenJob();
+            manager.Run<AddTenJob, Position>(query, ref job);
 
             Assert.AreEqual(15, manager.GetComponent<Position>(entity).Value);
             manager.Dispose();
+        }
+
+        [BurstCompile]
+        private struct DoublePositionScaleJob : IQueryJob<Position, Scale>
+        {
+            public int Processed;
+
+            public void Execute(ref Position c1, ref Scale c2)
+            {
+                Processed++;
+                c1.Value *= 2;
+                c2.Value *= 2;
+            }
         }
 
         [Test]
@@ -235,22 +255,28 @@ namespace Glai.ECS.Tests.EditMode
             manager.GetComponentRef<Position>(matchingEntity).Value = 2;
             manager.GetComponentRef<Scale>(matchingEntity).Value = 3;
 
-            int processed = 0;
+            var query = manager.Query().WithAll<Position, Scale>();
+            var job = new DoublePositionScaleJob();
+            manager.Run<DoublePositionScaleJob, Position, Scale>(query, ref job);
 
-            manager.Query()
-                .WithAll<Position, Scale>()
-                .ForEach((ref Position position, ref Scale scale) =>
-                {
-                    processed++;
-                    position.Value *= 2;
-                    scale.Value *= 2;
-                });
-
-            Assert.AreEqual(1, processed);
+            Assert.AreEqual(1, job.Processed);
             Assert.AreEqual(1, manager.GetComponent<Position>(positionOnlyEntity).Value);
             Assert.AreEqual(4, manager.GetComponent<Position>(matchingEntity).Value);
             Assert.AreEqual(6, manager.GetComponent<Scale>(matchingEntity).Value);
             manager.Dispose();
+        }
+
+        [BurstCompile]
+        private struct SetOneJob : IQueryJob<Position, Scale>
+        {
+            public int Processed;
+
+            public void Execute(ref Position c1, ref Scale c2)
+            {
+                Processed++;
+                c1.Value = 1;
+                c2.Value = 1;
+            }
         }
 
         [Test]
@@ -265,20 +291,26 @@ namespace Glai.ECS.Tests.EditMode
 
             manager.DestroyEntity(toDestroy);
 
-            int processed = 0;
-            manager.Query()
-                .WithAll<Position, Scale>()
-                .ForEach((ref Position position, ref Scale scale) =>
-                {
-                    processed++;
-                    position.Value = 1;
-                    scale.Value = 1;
-                });
+            var query = manager.Query().WithAll<Position, Scale>();
+            var job = new SetOneJob();
+            manager.Run<SetOneJob, Position, Scale>(query, ref job);
 
-            Assert.AreEqual(1, processed);
+            Assert.AreEqual(1, job.Processed);
             Assert.AreEqual(1, manager.GetComponent<Position>(alive).Value);
             Assert.AreEqual(1, manager.GetComponent<Scale>(alive).Value);
             manager.Dispose();
+        }
+
+        [BurstCompile]
+        private struct AddTenCountJob : IQueryJob<Position>
+        {
+            public int Processed;
+
+            public void Execute(ref Position c1)
+            {
+                Processed++;
+                c1.Value += 10;
+            }
         }
 
         [Test]
@@ -300,26 +332,36 @@ namespace Glai.ECS.Tests.EditMode
             manager.GetComponentRef<Scale>(entityA).Value = 3;
             manager.GetComponentRef<Scale>(entityC).Value = 4;
 
-            int processed = 0;
-
-            manager.Query()
+            var query = manager.Query()
                 .WithAny<Position, Scale>()
-                .WithNone<Scale>()
-                .ForEach((ref Position position) =>
-                {
-                    processed++;
-                    position.Value += 10;
-                });
+                .WithNone<Scale>();
+            var job = new AddTenCountJob();
+            manager.Run<AddTenCountJob, Position>(query, ref job);
 
-            Assert.AreEqual(1, processed);
+            Assert.AreEqual(1, job.Processed);
             Assert.AreEqual(1, manager.GetComponent<Position>(entityA).Value);
             Assert.AreEqual(12, manager.GetComponent<Position>(entityB).Value);
             Assert.AreEqual(4, manager.GetComponent<Scale>(entityC).Value);
             manager.Dispose();
         }
 
+        [BurstCompile]
+        private struct IncrementAll7Job : IQueryJob<Comp1, Comp2, Comp3, Comp4, Comp5, Comp6, Comp7>
+        {
+            public void Execute(ref Comp1 c1, ref Comp2 c2, ref Comp3 c3, ref Comp4 c4, ref Comp5 c5, ref Comp6 c6, ref Comp7 c7)
+            {
+                c1.Value += 1;
+                c2.Value += 1;
+                c3.Value += 1;
+                c4.Value += 1;
+                c5.Value += 1;
+                c6.Value += 1;
+                c7.Value += 1;
+            }
+        }
+
         [Test]
-        public void EntityManager_Query_T7_ForEachMutatesAllComponents()
+        public void EntityManager_Query_T7_JobMutatesAllComponents()
         {
             var manager = new EntityManager();
             manager.Initialize();
@@ -340,19 +382,11 @@ namespace Glai.ECS.Tests.EditMode
 
             manager.GetComponentRef<Comp1>(nonMatchingEntity).Value = 5;
 
-            manager.Query()
+            var query = manager.Query()
                 .WithAny<Comp1, Comp2, Comp3, Comp4, Comp5, Comp6, Comp7>()
-                .WithNone<Scale>()
-                .ForEach((ref Comp1 a, ref Comp2 b, ref Comp3 c, ref Comp4 d, ref Comp5 e, ref Comp6 f, ref Comp7 g) =>
-                {
-                    a.Value += 1;
-                    b.Value += 1;
-                    c.Value += 1;
-                    d.Value += 1;
-                    e.Value += 1;
-                    f.Value += 1;
-                    g.Value += 1;
-                });
+                .WithNone<Scale>();
+            var job = new IncrementAll7Job();
+            manager.Run<IncrementAll7Job, Comp1, Comp2, Comp3, Comp4, Comp5, Comp6, Comp7>(query, ref job);
 
             Assert.AreEqual(2, manager.GetComponent<Comp1>(matchingEntity).Value);
             Assert.AreEqual(2, manager.GetComponent<Comp7>(matchingEntity).Value);

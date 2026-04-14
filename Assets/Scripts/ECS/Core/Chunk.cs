@@ -2,7 +2,6 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Glai.Allocator;
-using Glai.Collection;
 using Glai.Core;
 using Unity.Collections;
 
@@ -16,21 +15,28 @@ namespace Glai.ECS.Core
         public int componentCount;
     }
 
-    public struct Chunk : IEquatable<Chunk>, IDisposable
+    public unsafe struct Chunk : IEquatable<Chunk>, IDisposable
     {
         FixedString128Bytes name;
 
         int maxComponentSize;
         int componentCount;
         int capacityBytes;
-        int nextComponentIndex;
+        int entityCount;
         int entityCapacity;
         int componentRegionBytes;
-        FixedStack<int> freeComponentIndices;
 
         IntPtr dataPtr;
+        int* entityIds;
 
         bool IsDisposed => dataPtr == IntPtr.Zero;
+
+        public int EntityCount => entityCount;
+        public int EntityCapacity => entityCapacity;
+        public int ComponentRegionBytes => componentRegionBytes;
+        public int MaxComponentSize => maxComponentSize;
+        public IntPtr DataPtr => dataPtr;
+        public int* EntityIds => entityIds;
 
         public Chunk(in ChunkData data, MemoryStateHandle memoryStateHandle, MemoryState memoryState)
         {
@@ -38,7 +44,7 @@ namespace Glai.ECS.Core
             componentCount = data.componentCount;
             maxComponentSize = data.maxComponentSize;
             capacityBytes = data.capacityBytes;
-            nextComponentIndex = 0;
+            entityCount = 0;
             componentRegionBytes = capacityBytes / componentCount;
             entityCapacity = componentRegionBytes / maxComponentSize;
             
@@ -47,26 +53,11 @@ namespace Glai.ECS.Core
                 throw new ArgumentException($"Chunk {name} has invalid capacity. capacityBytes={capacityBytes}, componentCount={componentCount}, maxComponentSize={maxComponentSize}.");
             }
 
-            freeComponentIndices = new FixedStack<int>(entityCapacity, memoryStateHandle, memoryState);
+            entityIds = (int*)Marshal.AllocHGlobal(entityCapacity * sizeof(int));
+            Unsafe.InitBlock(entityIds, 0, (uint)(entityCapacity * sizeof(int)));
+
             dataPtr = IntPtr.Zero;
             Allocate();
-        }
-
-        public void Dispose(MemoryState memoryState)
-        {
-            freeComponentIndices.Dispose(memoryState);
-            Dispose();
-        }
-
-        public unsafe void Allocate()
-        {
-            if (!IsDisposed)
-            {
-                Logger.LogWarning($"Chunk {name} is already allocated.");
-                return;
-            }
-            dataPtr = Marshal.AllocHGlobal(capacityBytes);
-            Unsafe.InitBlock(dataPtr.ToPointer(), 0, (uint)capacityBytes);
         }
 
         public void Dispose()
@@ -78,50 +69,68 @@ namespace Glai.ECS.Core
             }
             Marshal.FreeHGlobal(dataPtr);
             dataPtr = IntPtr.Zero;
+
+            if (entityIds != null)
+            {
+                Marshal.FreeHGlobal((IntPtr)entityIds);
+                entityIds = null;
+            }
         }
 
-        public int CreateComponentIndex()
+        public void Allocate()
         {
-            if (freeComponentIndices.Count > 0)
+            if (!IsDisposed)
             {
-                return freeComponentIndices.Pop();
+                Logger.LogWarning($"Chunk {name} is already allocated.");
+                return;
             }
-            else
+            dataPtr = Marshal.AllocHGlobal(capacityBytes);
+            Unsafe.InitBlock(dataPtr.ToPointer(), 0, (uint)capacityBytes);
+        }
+
+        public int CreateSlot(int entityId)
+        {
+            if (entityCount >= entityCapacity)
             {
-                if (nextComponentIndex >= entityCapacity)
+                throw new InvalidOperationException($"Chunk {name} is full.");
+            }
+
+            int index = entityCount;
+            entityIds[index] = entityId;
+            entityCount++;
+            return index;
+        }
+
+        public int RemoveSlot(int index)
+        {
+            if (index < 0 || index >= entityCount)
+            {
+                throw new ArgumentOutOfRangeException(nameof(index), $"Invalid slot index {index} for chunk {name}.");
+            }
+
+            int lastIndex = entityCount - 1;
+            int swappedEntityId = -1;
+
+            if (index != lastIndex)
+            {
+                for (int c = 0; c < componentCount; c++)
                 {
-                    throw new InvalidOperationException($"Chunk {name} is full.");
+                    byte* regionBase = (byte*)dataPtr + c * componentRegionBytes;
+                    Unsafe.CopyBlock(
+                        regionBase + index * maxComponentSize,
+                        regionBase + lastIndex * maxComponentSize,
+                        (uint)maxComponentSize);
                 }
-                return nextComponentIndex++;
-             }
-        }
 
-        public void RemoveComponentIndex(int index)
-        {
-            if (index < 0 || index >= nextComponentIndex)
-            {
-                throw new ArgumentOutOfRangeException(nameof(index), $"Invalid component index {index} for chunk {name}.");
-            }
-            
-            freeComponentIndices.Push(index);
-        }
-
-        public unsafe Span<T> GetComponents<T>(int componentIndex) where T : unmanaged
-        {
-            if (IsDisposed)
-            {
-                throw new InvalidOperationException($"Chunk {name} is not allocated.");
+                swappedEntityId = entityIds[lastIndex];
+                entityIds[index] = swappedEntityId;
             }
 
-            if (componentIndex < 0 || componentIndex >= componentCount)
-            {
-                throw new ArgumentOutOfRangeException(nameof(componentIndex), $"Invalid component index {componentIndex} for chunk {name}.");
-            }
-
-            return new Span<T>((void*)(dataPtr + (componentIndex * componentRegionBytes)), entityCapacity);
+            entityCount--;
+            return swappedEntityId;
         }
 
-        public unsafe ref T GetComponent<T>(int componentIndex, int index) where T : unmanaged
+        public ref T GetComponent<T>(int componentIndex, int index) where T : unmanaged
         {
             if (IsDisposed)
             {
@@ -138,7 +147,7 @@ namespace Glai.ECS.Core
                 throw new ArgumentOutOfRangeException(nameof(index), $"Invalid entity index {index} for chunk {name}.");
             }
 
-            return ref Unsafe.AsRef<T>((void*)(dataPtr + (componentIndex * componentRegionBytes) + (index * sizeof(T))));
+            return ref Unsafe.AsRef<T>((void*)(dataPtr + (componentIndex * componentRegionBytes) + (index * maxComponentSize)));
         }
 
         public bool Equals(Chunk other)
@@ -148,7 +157,7 @@ namespace Glai.ECS.Core
 
         public bool IsFull()
         {
-            return nextComponentIndex >= entityCapacity && freeComponentIndices.Count == 0;
+            return entityCount >= entityCapacity;
         }
     }
 }

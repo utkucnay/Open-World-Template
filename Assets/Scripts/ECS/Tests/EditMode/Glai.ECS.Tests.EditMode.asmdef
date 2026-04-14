@@ -6,7 +6,8 @@
         "Glai.ECS.Core",
         "Glai.Module",
         "Glai.Core",
-        "Unity.Collections"
+        "Unity.Collections",
+        "Unity.Burst"
     ],
     "includePlatforms": [
         "Editor"

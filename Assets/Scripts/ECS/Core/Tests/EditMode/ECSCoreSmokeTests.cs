@@ -53,7 +53,7 @@ namespace Glai.ECS.Core.Tests.EditMode
         }
 
         [Test]
-        public void Chunk_CreateAndRemoveIndex_ReusesFreedIndex()
+        public void Chunk_CreateSlot_AssignsSequentialIndices()
         {
             var memoryState = new ECSMemoryState();
             var chunk = new Chunk(new ChunkData
@@ -64,21 +64,85 @@ namespace Glai.ECS.Core.Tests.EditMode
                 componentCount = 2,
             }, memoryState.persistHandle, memoryState);
 
-            int first = chunk.CreateComponentIndex();
-            int second = chunk.CreateComponentIndex();
-            chunk.RemoveComponentIndex(first);
-            int reused = chunk.CreateComponentIndex();
-            int third = chunk.CreateComponentIndex();
-            int fourth = chunk.CreateComponentIndex();
+            int first = chunk.CreateSlot(0);
+            int second = chunk.CreateSlot(1);
+            int third = chunk.CreateSlot(2);
+            int fourth = chunk.CreateSlot(3);
 
             Assert.AreEqual(0, first);
             Assert.AreEqual(1, second);
-            Assert.AreEqual(first, reused);
             Assert.AreEqual(2, third);
             Assert.AreEqual(3, fourth);
+            Assert.AreEqual(4, chunk.EntityCount);
             Assert.IsTrue(chunk.IsFull());
 
-            chunk.Dispose(memoryState);
+            chunk.Dispose();
+            memoryState.Dispose();
+        }
+
+        [Test]
+        public void Chunk_RemoveSlot_SwapsLastEntityIntoDead()
+        {
+            var memoryState = new ECSMemoryState();
+            var chunk = new Chunk(new ChunkData
+            {
+                name = new FixedString128Bytes("ChunkSwapTest"),
+                capacityBytes = 64,
+                maxComponentSize = 8,
+                componentCount = 2,
+            }, memoryState.persistHandle, memoryState);
+
+            // capacity = (64/2) / 8 = 4 entities
+            chunk.CreateSlot(10);
+            chunk.CreateSlot(20);
+            chunk.CreateSlot(30);
+
+            Assert.AreEqual(3, chunk.EntityCount);
+
+            // Remove slot 0 (entity 10): last entity (30 at slot 2) swaps into slot 0
+            int swapped = chunk.RemoveSlot(0);
+            Assert.AreEqual(30, swapped);
+            Assert.AreEqual(2, chunk.EntityCount);
+
+            // Remove last slot (index 1 is now last): no swap needed
+            int swappedNone = chunk.RemoveSlot(1);
+            Assert.AreEqual(-1, swappedNone);
+            Assert.AreEqual(1, chunk.EntityCount);
+
+            chunk.Dispose();
+            memoryState.Dispose();
+        }
+
+        [Test]
+        public void Chunk_RemoveSlot_SwapsComponentData()
+        {
+            var memoryState = new ECSMemoryState();
+            var chunk = new Chunk(new ChunkData
+            {
+                name = new FixedString128Bytes("ChunkDataSwapTest"),
+                capacityBytes = 64,
+                maxComponentSize = 4,
+                componentCount = 2,
+            }, memoryState.persistHandle, memoryState);
+
+            // capacity = (64/2) / 4 = 8 entities
+            chunk.CreateSlot(0);
+            chunk.CreateSlot(1);
+            chunk.CreateSlot(2);
+
+            // Write distinct values into component region 0
+            chunk.GetComponent<int>(0, 0) = 100;
+            chunk.GetComponent<int>(0, 1) = 200;
+            chunk.GetComponent<int>(0, 2) = 300;
+
+            // Remove slot 0: slot 2 data (300) should swap into slot 0
+            chunk.RemoveSlot(0);
+
+            Assert.AreEqual(300, chunk.GetComponent<int>(0, 0));
+            Assert.AreEqual(200, chunk.GetComponent<int>(0, 1));
+            Assert.AreEqual(2, chunk.EntityCount);
+
+            chunk.Dispose();
             memoryState.Dispose();
         }
 
@@ -97,7 +161,7 @@ namespace Glai.ECS.Core.Tests.EditMode
             Assert.AreEqual(0, chunk.GetComponent<int>(0, 0));
             Assert.AreEqual(0, chunk.GetComponent<int>(1, 0));
 
-            chunk.Dispose(memoryState);
+            chunk.Dispose();
             memoryState.Dispose();
         }
     }

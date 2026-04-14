@@ -86,7 +86,7 @@ namespace Glai.ECS.Core
         {
             for (int i = 0; i < chunkList.Count; i++)
             {
-                chunkList[i].Dispose(memoryState);
+                chunkList[i].Dispose();
             }
 
             chunkList.Dispose(memoryState);
@@ -95,7 +95,7 @@ namespace Glai.ECS.Core
             availableChunkIndices.Dispose(memoryState);
         }
 
-        public EntityRecord AddEntity(MemoryState memoryState)
+        public EntityRecord AddEntity(MemoryState memoryState, int entityId)
         {
             int chunkIndex;
 
@@ -108,7 +108,7 @@ namespace Glai.ECS.Core
 
             chunkIndex = availableChunkIndices.Pop();
             ref var chunk = ref chunkList.Get(chunkIndex);
-            int componentIndex = chunk.CreateComponentIndex();
+            int componentIndex = chunk.CreateSlot(entityId);
 
             if (chunk.IsFull())
             {
@@ -126,11 +126,11 @@ namespace Glai.ECS.Core
             };
         }
 
-        public void RemoveEntity(EntityRecord entityRecord)
+        public int RemoveEntity(EntityRecord entityRecord)
         {
             ref var chunk = ref chunkList.Get(entityRecord.ChunkIndex);
             bool wasFull = chunk.IsFull();
-            chunk.RemoveComponentIndex(entityRecord.ComponentIndex);
+            int swappedEntityId = chunk.RemoveSlot(entityRecord.ComponentIndex);
 
             if (!chunk.IsFull() && !availableChunkIndices.Contains(entityRecord.ChunkIndex))
             {
@@ -144,10 +144,12 @@ namespace Glai.ECS.Core
                     if (fullChunkIndices[i] == entityRecord.ChunkIndex)
                     {
                         fullChunkIndices.RemoveAt(i);
-                        return;
+                        return swappedEntityId;
                     }
                 }
             }
+
+            return swappedEntityId;
         }
 
         public int GetActiveChunk(int i)
@@ -156,14 +158,6 @@ namespace Glai.ECS.Core
             i -= fullChunkIndices.Count;
             if (i < availableChunkIndices.Count) return availableChunkIndices[i];
             return -1;
-        }
-
-        public Span<T> GetComponents<T>(int chunkIndex) where T : unmanaged, IComponent
-        {
-            int componentIndex = GetComponentStorageIndex(TypeId<T>.Id);
-            if (componentIndex == -1) throw new InvalidOperationException($"Component of type {typeof(T)} not found in archetype.");
-
-            return chunkList[chunkIndex].GetComponents<T>(componentIndex);
         }
 
         public ref T GetComponent<T>(EntityRecord entityRecord) where T : unmanaged, IComponent
@@ -376,7 +370,14 @@ namespace Glai.ECS.Core
             return !HasAny<T1, T2, T3, T4, T5, T6, T7>();
         }
 
-        private int GetComponentStorageIndex(int componentTypeId)
+        public int ChunkCount => chunkList.Count;
+
+        public ref Chunk GetChunk(int index)
+        {
+            return ref chunkList.Get(index);
+        }
+
+        internal int GetComponentStorageIndex(int componentTypeId)
         {
             for (int i = 0; i < componentCount; i++)
             {
