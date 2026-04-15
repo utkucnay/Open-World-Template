@@ -2,6 +2,7 @@ using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Glai.Allocator;
+using Glai.Collection;
 using Glai.Core;
 using Unity.Collections;
 
@@ -11,81 +12,105 @@ namespace Glai.ECS.Core
     {
         public FixedString128Bytes name;
         public int capacityBytes;
-        public int maxComponentSize;
         public int componentCount;
+        public Span<int> componentSizes;
     }
 
-    public unsafe struct Chunk : IEquatable<Chunk>, IDisposable
+    public unsafe struct Chunk : IEquatable<Chunk>    
     {
         FixedString128Bytes name;
 
-        int maxComponentSize;
         int componentCount;
         int capacityBytes;
         int entityCount;
         int entityCapacity;
-        int componentRegionBytes;
+
+        MemoryStateHandle memoryStateHandle;
+        HandleArray entityIdHandle;
+        HandleArray dataHandle;
+        HandleArray componentSizesHandle;
+        HandleArray componentOffsetsHandle;
 
         IntPtr dataPtr;
         int* entityIds;
+        int* componentSizesPtr;
+        int* componentOffsetsPtr;
 
         bool IsDisposed => dataPtr == IntPtr.Zero;
 
         public int EntityCount => entityCount;
         public int EntityCapacity => entityCapacity;
-        public int ComponentRegionBytes => componentRegionBytes;
-        public int MaxComponentSize => maxComponentSize;
-        public IntPtr DataPtr => dataPtr;
-        public int* EntityIds => entityIds;
 
         public Chunk(in ChunkData data, MemoryStateHandle memoryStateHandle, MemoryState memoryState)
         {
+            this.memoryStateHandle = memoryStateHandle;            
             name = data.name;
             componentCount = data.componentCount;
-            maxComponentSize = data.maxComponentSize;
             capacityBytes = data.capacityBytes;
             entityCount = 0;
-            componentRegionBytes = capacityBytes / componentCount;
-            entityCapacity = componentRegionBytes / maxComponentSize;
-            
-            if (entityCapacity <= 0)
+
+            var allocator = memoryState.Get<IAllocator>(memoryStateHandle);
+
+            // Store per-component sizes
+            componentSizesHandle = allocator.AllocateArray<int>(componentCount);
+            var sizesSpan = allocator.GetArray<int>(componentSizesHandle);
+            data.componentSizes.CopyTo(sizesSpan);
+            componentSizesPtr = (int*)Unsafe.AsPointer(ref sizesSpan.GetPinnableReference());
+
+            // Compute entity capacity from total bytes per entity
+            int totalBytesPerEntity = 0;
+            for (int i = 0; i < componentCount; i++)
             {
-                throw new ArgumentException($"Chunk {name} has invalid capacity. capacityBytes={capacityBytes}, componentCount={componentCount}, maxComponentSize={maxComponentSize}.");
+                totalBytesPerEntity += data.componentSizes[i];
             }
 
-            entityIds = (int*)Marshal.AllocHGlobal(entityCapacity * sizeof(int));
-            Unsafe.InitBlock(entityIds, 0, (uint)(entityCapacity * sizeof(int)));
+            entityCapacity = capacityBytes / totalBytesPerEntity;
 
+            if (entityCapacity <= 0)
+            {
+                throw new ArgumentException($"Chunk {name} has invalid capacity. capacityBytes={capacityBytes}, componentCount={componentCount}, totalBytesPerEntity={totalBytesPerEntity}.");
+            }
+
+            // Compute per-component offsets
+            componentOffsetsHandle = allocator.AllocateArray<int>(componentCount);
+            var offsetsSpan = allocator.GetArray<int>(componentOffsetsHandle);
+            componentOffsetsPtr = (int*)Unsafe.AsPointer(ref offsetsSpan.GetPinnableReference());
+
+            int currentOffset = 0;
+            for (int i = 0; i < componentCount; i++)
+            {
+                componentOffsetsPtr[i] = currentOffset;
+                currentOffset += entityCapacity * componentSizesPtr[i];
+            }
+
+            // Allocate entity ids
+            entityIdHandle = allocator.AllocateArray<int>(entityCapacity);
+            entityIds = (int*)Unsafe.AsPointer(ref allocator.GetArray<int>(entityIdHandle).GetPinnableReference());
+
+            // Allocate data buffer
             dataPtr = IntPtr.Zero;
-            Allocate();
+            dataHandle = allocator.AllocateArray<byte>(capacityBytes);
+            dataPtr = (IntPtr)Unsafe.AsPointer(ref allocator.GetArray<byte>(dataHandle).GetPinnableReference());
         }
 
-        public void Dispose()
+        public void Dispose(MemoryState memoryState)
         {   
             if (IsDisposed)
             {
                 Logger.LogWarning($"Chunk {name} is already disposed.");
                 return;
             }
-            Marshal.FreeHGlobal(dataPtr);
+            
+            var allocator = memoryState.Get<IAllocator>(memoryStateHandle);
+            allocator.Deallocate(entityIdHandle);
+            allocator.Deallocate(dataHandle);
+            allocator.Deallocate(componentSizesHandle);
+            allocator.Deallocate(componentOffsetsHandle);
+
             dataPtr = IntPtr.Zero;
-
-            if (entityIds != null)
-            {
-                Marshal.FreeHGlobal((IntPtr)entityIds);
-                entityIds = null;
-            }
-        }
-
-        public void Allocate()
-        {
-            if (!IsDisposed)
-            {
-                Logger.LogWarning($"Chunk {name} is already allocated.");
-                return;
-            }
-            dataPtr = Marshal.AllocHGlobal(capacityBytes);
-            Unsafe.InitBlock(dataPtr.ToPointer(), 0, (uint)capacityBytes);
+            entityIds = null;
+            componentSizesPtr = null;
+            componentOffsetsPtr = null;
         }
 
         public int CreateSlot(int entityId)
@@ -115,11 +140,12 @@ namespace Glai.ECS.Core
             {
                 for (int c = 0; c < componentCount; c++)
                 {
-                    byte* regionBase = (byte*)dataPtr + c * componentRegionBytes;
+                    int size = componentSizesPtr[c];
+                    byte* regionBase = (byte*)dataPtr + componentOffsetsPtr[c];
                     Unsafe.CopyBlock(
-                        regionBase + index * maxComponentSize,
-                        regionBase + lastIndex * maxComponentSize,
-                        (uint)maxComponentSize);
+                        regionBase + index * size,
+                        regionBase + lastIndex * size,
+                        (uint)size);
                 }
 
                 swappedEntityId = entityIds[lastIndex];
@@ -147,7 +173,25 @@ namespace Glai.ECS.Core
                 throw new ArgumentOutOfRangeException(nameof(index), $"Invalid entity index {index} for chunk {name}.");
             }
 
-            return ref Unsafe.AsRef<T>((void*)(dataPtr + (componentIndex * componentRegionBytes) + (index * maxComponentSize)));
+            return ref Unsafe.AsRef<T>((void*)(dataPtr + componentOffsetsPtr[componentIndex] + index * componentSizesPtr[componentIndex]));
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public byte* GetComponentPtr(int componentStorageIndex)
+        {
+            return (byte*)dataPtr + componentOffsetsPtr[componentStorageIndex];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public int GetComponentSize(int componentStorageIndex)
+        {
+            return componentSizesPtr[componentStorageIndex];
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        internal int* GetEntityIds()
+        {
+            return entityIds;
         }
 
         public bool Equals(Chunk other)

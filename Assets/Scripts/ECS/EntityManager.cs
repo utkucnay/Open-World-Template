@@ -44,7 +44,8 @@ namespace Glai.ECS
         public int CreateArchetype<T1>(T1 t1) where T1 : unmanaged, IComponent
         {
             Span<int> componentTypeIds = stackalloc int[1];
-            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds);
+            Span<int> componentSizes = stackalloc int[1];
+            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds, componentSizes);
             archetypeData.AddComponent<T1>();
 
             var archetype = new Archetype(archetypeData, ecsMemoryState.persistHandle, ecsMemoryState);
@@ -55,7 +56,8 @@ namespace Glai.ECS
         public int CreateArchetype<T1, T2>(T1 t1, T2 t2) where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent
         {
             Span<int> componentTypeIds = stackalloc int[2];
-            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds);
+            Span<int> componentSizes = stackalloc int[2];
+            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds, componentSizes);
             archetypeData.AddComponent<T1>();
             archetypeData.AddComponent<T2>();
 
@@ -67,7 +69,8 @@ namespace Glai.ECS
         public int CreateArchetype<T1, T2, T3>(T1 t1, T2 t2, T3 t3) where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent where T3 : unmanaged, IComponent
         {
             Span<int> componentTypeIds = stackalloc int[3];
-            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds);
+            Span<int> componentSizes = stackalloc int[3];
+            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds, componentSizes);
             archetypeData.AddComponent<T1>();
             archetypeData.AddComponent<T2>();
             archetypeData.AddComponent<T3>();
@@ -80,7 +83,8 @@ namespace Glai.ECS
         public int CreateArchetype<T1, T2, T3, T4>(T1 t1, T2 t2, T3 t3, T4 t4) where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent where T3 : unmanaged, IComponent where T4 : unmanaged, IComponent
         {
             Span<int> componentTypeIds = stackalloc int[4];
-            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds);
+            Span<int> componentSizes = stackalloc int[4];
+            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds, componentSizes);
             archetypeData.AddComponent<T1>();
             archetypeData.AddComponent<T2>();
             archetypeData.AddComponent<T3>();
@@ -94,7 +98,8 @@ namespace Glai.ECS
         public int CreateArchetype<T1, T2, T3, T4, T5>(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5) where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent where T3 : unmanaged, IComponent where T4 : unmanaged, IComponent where T5 : unmanaged, IComponent
         {
             Span<int> componentTypeIds = stackalloc int[5];
-            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds);
+            Span<int> componentSizes = stackalloc int[5];
+            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds, componentSizes);
             archetypeData.AddComponent<T1>();
             archetypeData.AddComponent<T2>();
             archetypeData.AddComponent<T3>();
@@ -109,7 +114,8 @@ namespace Glai.ECS
         public int CreateArchetype<T1, T2, T3, T4, T5, T6>(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6) where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent where T3 : unmanaged, IComponent where T4 : unmanaged, IComponent where T5 : unmanaged, IComponent where T6 : unmanaged, IComponent
         {
             Span<int> componentTypeIds = stackalloc int[6];
-            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds);
+            Span<int> componentSizes = stackalloc int[6];
+            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds, componentSizes);
             archetypeData.AddComponent<T1>();
             archetypeData.AddComponent<T2>();
             archetypeData.AddComponent<T3>();
@@ -125,7 +131,8 @@ namespace Glai.ECS
         public int CreateArchetype<T1, T2, T3, T4, T5, T6, T7>(T1 t1, T2 t2, T3 t3, T4 t4, T5 t5, T6 t6, T7 t7) where T1 : unmanaged, IComponent where T2 : unmanaged, IComponent where T3 : unmanaged, IComponent where T4 : unmanaged, IComponent where T5 : unmanaged, IComponent where T6 : unmanaged, IComponent where T7 : unmanaged, IComponent
         {
             Span<int> componentTypeIds = stackalloc int[7];
-            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds);
+            Span<int> componentSizes = stackalloc int[7];
+            ArchetypeData archetypeData = new ArchetypeData(16, componentTypeIds, componentSizes);
             archetypeData.AddComponent<T1>();
             archetypeData.AddComponent<T2>();
             archetypeData.AddComponent<T3>();
@@ -234,6 +241,70 @@ namespace Glai.ECS
             query.allTypeIds.Dispose(ecsMemoryState);
             ecsMemoryState.PushQueryBuilderHandle(query.memoryStateHandle);
             query.disposed = true;
+        }
+
+        private bool MatchesQuery(in QueryBuilder query, ref Archetype archetype)
+        {
+            for (int i = 0; i < query.allTypeIds.Count; i++)
+            {
+                if (!archetype.HasComponentTypeId(query.allTypeIds[i]))
+                {
+                    return false;
+                }
+            }
+
+            if (query.anyTypeIds.Count > 0)
+            {
+                bool anyMatch = false;
+                for (int i = 0; i < query.anyTypeIds.Count; i++)
+                {
+                    if (archetype.HasComponentTypeId(query.anyTypeIds[i]))
+                    {
+                        anyMatch = true;
+                        break;
+                    }
+                }
+
+                if (!anyMatch)
+                {
+                    return false;
+                }
+            }
+
+            for (int i = 0; i < query.noneTypeIds.Count; i++)
+            {
+                if (archetype.HasComponentTypeId(query.noneTypeIds[i]))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public void Run<TDispatch>(QueryBuilder query, ref TDispatch dispatch)
+            where TDispatch : struct, IQueryJobDispatch
+        {
+            try
+            {
+                for (int a = 0; a < archeTypes.Count; a++)
+                {
+                    ref var archetype = ref archeTypes.Get(a);
+                    if (!MatchesQuery(query, ref archetype)) continue;
+                    if (!dispatch.PrepareArchetype(ref archetype)) continue;
+
+                    for (int c = 0; c < archetype.ChunkCount; c++)
+                    {
+                        ref var chunk = ref archetype.GetChunk(c);
+                        if (chunk.EntityCount == 0) continue;
+                        dispatch.ExecuteChunk(ref chunk);
+                    }
+                }
+            }
+            finally
+            {
+                DisposeQuery(ref query);
+            }
         }
     }
 }

@@ -56,14 +56,16 @@ namespace Glai.ECS.Core.Tests.EditMode
         public void Chunk_CreateSlot_AssignsSequentialIndices()
         {
             var memoryState = new ECSMemoryState();
+            Span<int> sizes = stackalloc int[] { 8, 8 };
             var chunk = new Chunk(new ChunkData
             {
                 name = new FixedString128Bytes("ChunkTest"),
                 capacityBytes = 64,
-                maxComponentSize = 8,
                 componentCount = 2,
+                componentSizes = sizes,
             }, memoryState.persistHandle, memoryState);
 
+            // capacity = 64 / (8+8) = 4 entities
             int first = chunk.CreateSlot(0);
             int second = chunk.CreateSlot(1);
             int third = chunk.CreateSlot(2);
@@ -76,7 +78,7 @@ namespace Glai.ECS.Core.Tests.EditMode
             Assert.AreEqual(4, chunk.EntityCount);
             Assert.IsTrue(chunk.IsFull());
 
-            chunk.Dispose();
+            chunk.Dispose(memoryState);
             memoryState.Dispose();
         }
 
@@ -84,15 +86,16 @@ namespace Glai.ECS.Core.Tests.EditMode
         public void Chunk_RemoveSlot_SwapsLastEntityIntoDead()
         {
             var memoryState = new ECSMemoryState();
+            Span<int> sizes = stackalloc int[] { 8, 8 };
             var chunk = new Chunk(new ChunkData
             {
                 name = new FixedString128Bytes("ChunkSwapTest"),
                 capacityBytes = 64,
-                maxComponentSize = 8,
                 componentCount = 2,
+                componentSizes = sizes,
             }, memoryState.persistHandle, memoryState);
 
-            // capacity = (64/2) / 8 = 4 entities
+            // capacity = 64 / (8+8) = 4 entities
             chunk.CreateSlot(10);
             chunk.CreateSlot(20);
             chunk.CreateSlot(30);
@@ -109,7 +112,7 @@ namespace Glai.ECS.Core.Tests.EditMode
             Assert.AreEqual(-1, swappedNone);
             Assert.AreEqual(1, chunk.EntityCount);
 
-            chunk.Dispose();
+            chunk.Dispose(memoryState);
             memoryState.Dispose();
         }
 
@@ -117,15 +120,16 @@ namespace Glai.ECS.Core.Tests.EditMode
         public void Chunk_RemoveSlot_SwapsComponentData()
         {
             var memoryState = new ECSMemoryState();
+            Span<int> sizes = stackalloc int[] { 4, 4 };
             var chunk = new Chunk(new ChunkData
             {
                 name = new FixedString128Bytes("ChunkDataSwapTest"),
                 capacityBytes = 64,
-                maxComponentSize = 4,
                 componentCount = 2,
+                componentSizes = sizes,
             }, memoryState.persistHandle, memoryState);
 
-            // capacity = (64/2) / 4 = 8 entities
+            // capacity = 64 / (4+4) = 8 entities
             chunk.CreateSlot(0);
             chunk.CreateSlot(1);
             chunk.CreateSlot(2);
@@ -142,7 +146,7 @@ namespace Glai.ECS.Core.Tests.EditMode
             Assert.AreEqual(200, chunk.GetComponent<int>(0, 1));
             Assert.AreEqual(2, chunk.EntityCount);
 
-            chunk.Dispose();
+            chunk.Dispose(memoryState);
             memoryState.Dispose();
         }
 
@@ -150,18 +154,19 @@ namespace Glai.ECS.Core.Tests.EditMode
         public void Chunk_NewChunk_DataRegionIsZeroInitialized()
         {
             var memoryState = new ECSMemoryState();
+            Span<int> sizes = stackalloc int[] { 4, 4 };
             var chunk = new Chunk(new ChunkData
             {
                 name = new FixedString128Bytes("ChunkInitTest"),
                 capacityBytes = 64,
-                maxComponentSize = 4,
                 componentCount = 2,
+                componentSizes = sizes,
             }, memoryState.persistHandle, memoryState);
 
             Assert.AreEqual(0, chunk.GetComponent<int>(0, 0));
             Assert.AreEqual(0, chunk.GetComponent<int>(1, 0));
 
-            chunk.Dispose();
+            chunk.Dispose(memoryState);
             memoryState.Dispose();
         }
     }

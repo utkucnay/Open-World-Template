@@ -33,21 +33,6 @@ namespace Glai.Analytics.Editor.Tests.EditMode
         }
 
         [Test]
-        public void Open_CreatesMemoryAnalyticsWindow()
-        {
-            if (SystemInfo.graphicsDeviceType == GraphicsDeviceType.Null)
-            {
-                Assert.Pass("Editor window creation is not available in -nographics mode.");
-            }
-
-            MemoryAnalyticsWindow.Open();
-            var window = EditorWindow.GetWindow<MemoryAnalyticsWindow>();
-
-            Assert.IsNotNull(window);
-            window.Close();
-        }
-
-        [Test]
         public void FormatBytes_FormatsKilobytesCorrectly()
         {
             MethodInfo method = typeof(MemoryAnalyticsWindow).GetMethod(

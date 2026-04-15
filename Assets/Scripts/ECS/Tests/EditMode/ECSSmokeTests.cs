@@ -6,6 +6,97 @@ using Unity.Burst;
 
 namespace Glai.ECS.Tests.EditMode
 {
+    // Component types must be non-nested for the source generator to reference them
+    // in the generated dispatch structs.
+
+    internal struct Position : IComponent
+    {
+        public int Value;
+    }
+
+    internal struct Scale : IComponent
+    {
+        public int Value;
+    }
+
+    internal struct Velocity : IComponent
+    {
+        public int Value;
+    }
+
+    internal struct Comp1 : IComponent { public int Value; }
+    internal struct Comp2 : IComponent { public int Value; }
+    internal struct Comp3 : IComponent { public int Value; }
+    internal struct Comp4 : IComponent { public int Value; }
+    internal struct Comp5 : IComponent { public int Value; }
+    internal struct Comp6 : IComponent { public int Value; }
+    internal struct Comp7 : IComponent { public int Value; }
+
+    // Job structs must be non-nested so the source generator can emit
+    // concrete [BurstCompile] dispatch wrappers for them.
+
+    [BurstCompile]
+    internal struct AddTenJob : IQueryJob<Position>
+    {
+        public void Execute(ref Position c1)
+        {
+            c1.Value += 10;
+        }
+    }
+
+    [BurstCompile]
+    internal struct DoublePositionScaleJob : IQueryJob<Position, Scale>
+    {
+        public int Processed;
+
+        public void Execute(ref Position c1, ref Scale c2)
+        {
+            Processed++;
+            c1.Value *= 2;
+            c2.Value *= 2;
+        }
+    }
+
+    [BurstCompile]
+    internal struct SetOneJob : IQueryJob<Position, Scale>
+    {
+        public int Processed;
+
+        public void Execute(ref Position c1, ref Scale c2)
+        {
+            Processed++;
+            c1.Value = 1;
+            c2.Value = 1;
+        }
+    }
+
+    [BurstCompile]
+    internal struct AddTenCountJob : IQueryJob<Position>
+    {
+        public int Processed;
+
+        public void Execute(ref Position c1)
+        {
+            Processed++;
+            c1.Value += 10;
+        }
+    }
+
+    [BurstCompile]
+    internal struct IncrementAll7Job : IQueryJob<Comp1, Comp2, Comp3, Comp4, Comp5, Comp6, Comp7>
+    {
+        public void Execute(ref Comp1 c1, ref Comp2 c2, ref Comp3 c3, ref Comp4 c4, ref Comp5 c5, ref Comp6 c6, ref Comp7 c7)
+        {
+            c1.Value += 1;
+            c2.Value += 1;
+            c3.Value += 1;
+            c4.Value += 1;
+            c5.Value += 1;
+            c6.Value += 1;
+            c7.Value += 1;
+        }
+    }
+
     public class ECSSmokeTests
     {
         [SetUp]
@@ -29,16 +120,6 @@ namespace Glai.ECS.Tests.EditMode
         private static void ResetLoggerChannels()
         {
             Glai.Core.Logger.ResetChannels();
-        }
-
-        private struct Position : IComponent
-        {
-            public int Value;
-        }
-
-        private struct Scale : IComponent
-        {
-            public int Value;
         }
 
         [Test]
@@ -199,15 +280,6 @@ namespace Glai.ECS.Tests.EditMode
             manager.Dispose();
         }
 
-        [BurstCompile]
-        private struct AddTenJob : IQueryJob<Position>
-        {
-            public void Execute(ref Position c1)
-            {
-                c1.Value += 10;
-            }
-        }
-
         [Test]
         public void EntityManager_Query_WithAllSingleComponent_JobMutatesComponent()
         {
@@ -220,23 +292,10 @@ namespace Glai.ECS.Tests.EditMode
 
             var query = manager.Query().WithAll<Position>();
             var job = new AddTenJob();
-            manager.Run<AddTenJob, Position>(query, ref job);
+            manager.Run(query, ref job);
 
             Assert.AreEqual(15, manager.GetComponent<Position>(entity).Value);
             manager.Dispose();
-        }
-
-        [BurstCompile]
-        private struct DoublePositionScaleJob : IQueryJob<Position, Scale>
-        {
-            public int Processed;
-
-            public void Execute(ref Position c1, ref Scale c2)
-            {
-                Processed++;
-                c1.Value *= 2;
-                c2.Value *= 2;
-            }
         }
 
         [Test]
@@ -257,26 +316,13 @@ namespace Glai.ECS.Tests.EditMode
 
             var query = manager.Query().WithAll<Position, Scale>();
             var job = new DoublePositionScaleJob();
-            manager.Run<DoublePositionScaleJob, Position, Scale>(query, ref job);
+            manager.Run(query, ref job);
 
             Assert.AreEqual(1, job.Processed);
             Assert.AreEqual(1, manager.GetComponent<Position>(positionOnlyEntity).Value);
             Assert.AreEqual(4, manager.GetComponent<Position>(matchingEntity).Value);
             Assert.AreEqual(6, manager.GetComponent<Scale>(matchingEntity).Value);
             manager.Dispose();
-        }
-
-        [BurstCompile]
-        private struct SetOneJob : IQueryJob<Position, Scale>
-        {
-            public int Processed;
-
-            public void Execute(ref Position c1, ref Scale c2)
-            {
-                Processed++;
-                c1.Value = 1;
-                c2.Value = 1;
-            }
         }
 
         [Test]
@@ -293,24 +339,12 @@ namespace Glai.ECS.Tests.EditMode
 
             var query = manager.Query().WithAll<Position, Scale>();
             var job = new SetOneJob();
-            manager.Run<SetOneJob, Position, Scale>(query, ref job);
+            manager.Run(query, ref job);
 
             Assert.AreEqual(1, job.Processed);
             Assert.AreEqual(1, manager.GetComponent<Position>(alive).Value);
             Assert.AreEqual(1, manager.GetComponent<Scale>(alive).Value);
             manager.Dispose();
-        }
-
-        [BurstCompile]
-        private struct AddTenCountJob : IQueryJob<Position>
-        {
-            public int Processed;
-
-            public void Execute(ref Position c1)
-            {
-                Processed++;
-                c1.Value += 10;
-            }
         }
 
         [Test]
@@ -336,28 +370,13 @@ namespace Glai.ECS.Tests.EditMode
                 .WithAny<Position, Scale>()
                 .WithNone<Scale>();
             var job = new AddTenCountJob();
-            manager.Run<AddTenCountJob, Position>(query, ref job);
+            manager.Run(query, ref job);
 
             Assert.AreEqual(1, job.Processed);
             Assert.AreEqual(1, manager.GetComponent<Position>(entityA).Value);
             Assert.AreEqual(12, manager.GetComponent<Position>(entityB).Value);
             Assert.AreEqual(4, manager.GetComponent<Scale>(entityC).Value);
             manager.Dispose();
-        }
-
-        [BurstCompile]
-        private struct IncrementAll7Job : IQueryJob<Comp1, Comp2, Comp3, Comp4, Comp5, Comp6, Comp7>
-        {
-            public void Execute(ref Comp1 c1, ref Comp2 c2, ref Comp3 c3, ref Comp4 c4, ref Comp5 c5, ref Comp6 c6, ref Comp7 c7)
-            {
-                c1.Value += 1;
-                c2.Value += 1;
-                c3.Value += 1;
-                c4.Value += 1;
-                c5.Value += 1;
-                c6.Value += 1;
-                c7.Value += 1;
-            }
         }
 
         [Test]
@@ -386,7 +405,7 @@ namespace Glai.ECS.Tests.EditMode
                 .WithAny<Comp1, Comp2, Comp3, Comp4, Comp5, Comp6, Comp7>()
                 .WithNone<Scale>();
             var job = new IncrementAll7Job();
-            manager.Run<IncrementAll7Job, Comp1, Comp2, Comp3, Comp4, Comp5, Comp6, Comp7>(query, ref job);
+            manager.Run(query, ref job);
 
             Assert.AreEqual(2, manager.GetComponent<Comp1>(matchingEntity).Value);
             Assert.AreEqual(2, manager.GetComponent<Comp7>(matchingEntity).Value);
@@ -406,18 +425,5 @@ namespace Glai.ECS.Tests.EditMode
 
             Assert.IsNull(IEntityManager.Instance);
         }
-
-        private struct Velocity : IComponent
-        {
-            public int Value;
-        }
-
-        private struct Comp1 : IComponent { public int Value; }
-        private struct Comp2 : IComponent { public int Value; }
-        private struct Comp3 : IComponent { public int Value; }
-        private struct Comp4 : IComponent { public int Value; }
-        private struct Comp5 : IComponent { public int Value; }
-        private struct Comp6 : IComponent { public int Value; }
-        private struct Comp7 : IComponent { public int Value; }
     }
 }

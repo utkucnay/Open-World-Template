@@ -2,7 +2,6 @@ using System;
 using Glai.Allocator;
 using Glai.Collection;
 using Glai.Core;
-using Unity.Mathematics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -11,17 +10,16 @@ namespace Glai.ECS.Core
     internal ref struct ArchetypeData
     {
         public int maxChunkCount;
-        
-        public int MaxComponentSize;
 
         public Span<int> ComponentTypeIds;
+        public Span<int> ComponentSizes;
         private int componentTypeIndex;
 
-        public ArchetypeData(int maxChunkCount, Span<int> componentTypeIds)
+        public ArchetypeData(int maxChunkCount, Span<int> componentTypeIds, Span<int> componentSizes)
         {
             this.maxChunkCount = maxChunkCount;
             ComponentTypeIds = componentTypeIds;
-            MaxComponentSize = 0;
+            ComponentSizes = componentSizes;
             componentTypeIndex = 0;
         }
 
@@ -37,12 +35,13 @@ namespace Glai.ECS.Core
                 }
             }
 
-            ComponentTypeIds[componentTypeIndex++] = componentTypeId;
-            MaxComponentSize = math.max(MaxComponentSize, sizeof(T));
+            ComponentTypeIds[componentTypeIndex] = componentTypeId;
+            ComponentSizes[componentTypeIndex] = sizeof(T);
+            componentTypeIndex++;
         }
     }
 
-    internal struct Archetype : IEquatable<Archetype>
+    public struct Archetype : IEquatable<Archetype>
     {
         const int ChunkCapacityBytes = 16 * 1024;
 
@@ -52,18 +51,18 @@ namespace Glai.ECS.Core
         private FixedStack<int> availableChunkIndices;
 
         private FixedArray<int> componentTypeIds;
-        private int maxComponentSize;
+        private FixedArray<int> componentSizes;
         private int componentCount;
         private MemoryStateHandle memoryStateHandle;
 
-        public Archetype(in ArchetypeData archetypeData, MemoryStateHandle memoryStateHandle, MemoryState memoryState) 
+        internal Archetype(in ArchetypeData archetypeData, MemoryStateHandle memoryStateHandle, MemoryState memoryState) 
         {
             this.memoryStateHandle = memoryStateHandle;
-            maxComponentSize = archetypeData.MaxComponentSize;
             componentCount = archetypeData.ComponentTypeIds.Length;
 
             chunkList = new FixedList<Chunk>(archetypeData.maxChunkCount, memoryStateHandle, memoryState);            
             componentTypeIds = new FixedArray<int>(componentCount, archetypeData.ComponentTypeIds, memoryStateHandle, memoryState);
+            componentSizes = new FixedArray<int>(componentCount, archetypeData.ComponentSizes, memoryStateHandle, memoryState);
             fullChunkIndices = new FixedList<int>(archetypeData.maxChunkCount, memoryStateHandle, memoryState);
             availableChunkIndices = new FixedStack<int>(archetypeData.maxChunkCount, memoryStateHandle, memoryState);
 
@@ -73,12 +72,18 @@ namespace Glai.ECS.Core
 
         private Chunk CreateChunk(int index, MemoryState memoryState)
         {
+            Span<int> sizes = stackalloc int[componentCount];
+            for (int i = 0; i < componentCount; i++)
+            {
+                sizes[i] = componentSizes[i];
+            }
+
             return new Chunk(new ChunkData
             {
                 name = new FixedString128Bytes($"Chunk{index}"),
                 capacityBytes = ChunkCapacityBytes,
-                maxComponentSize = maxComponentSize,
-                componentCount = componentCount
+                componentCount = componentCount,
+                componentSizes = sizes
             }, memoryStateHandle, memoryState);
         }
 
@@ -86,11 +91,12 @@ namespace Glai.ECS.Core
         {
             for (int i = 0; i < chunkList.Count; i++)
             {
-                chunkList[i].Dispose();
+                chunkList[i].Dispose(memoryState);
             }
 
             chunkList.Dispose(memoryState);
             componentTypeIds.Dispose(memoryState);
+            componentSizes.Dispose(memoryState);
             fullChunkIndices.Dispose(memoryState);
             availableChunkIndices.Dispose(memoryState);
         }
@@ -377,7 +383,7 @@ namespace Glai.ECS.Core
             return ref chunkList.Get(index);
         }
 
-        internal int GetComponentStorageIndex(int componentTypeId)
+        public int GetComponentStorageIndex(int componentTypeId)
         {
             for (int i = 0; i < componentCount; i++)
             {
@@ -392,7 +398,7 @@ namespace Glai.ECS.Core
         
         public bool Equals(Archetype other)
         {
-            if (componentCount != other.componentCount || maxComponentSize != other.maxComponentSize)
+            if (componentCount != other.componentCount)
             {
                 return false;
             }
