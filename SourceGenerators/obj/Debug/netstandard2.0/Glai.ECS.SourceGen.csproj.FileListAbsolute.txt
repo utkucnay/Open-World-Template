@@ -1,0 +1,11 @@
+D:\project\Open-World-Template\SourceGenerators\bin\Debug\netstandard2.0\Glai.ECS.SourceGen.deps.json
+D:\project\Open-World-Template\SourceGenerators\bin\Debug\netstandard2.0\Glai.ECS.SourceGen.dll
+D:\project\Open-World-Template\SourceGenerators\bin\Debug\netstandard2.0\Glai.ECS.SourceGen.pdb
+D:\project\Open-World-Template\SourceGenerators\obj\Debug\netstandard2.0\Glai.ECS.SourceGen.csproj.AssemblyReference.cache
+D:\project\Open-World-Template\SourceGenerators\obj\Debug\netstandard2.0\Glai.ECS.SourceGen.GeneratedMSBuildEditorConfig.editorconfig
+D:\project\Open-World-Template\SourceGenerators\obj\Debug\netstandard2.0\Glai.ECS.SourceGen.AssemblyInfoInputs.cache
+D:\project\Open-World-Template\SourceGenerators\obj\Debug\netstandard2.0\Glai.ECS.SourceGen.AssemblyInfo.cs
+D:\project\Open-World-Template\SourceGenerators\obj\Debug\netstandard2.0\Glai.ECS.SourceGen.csproj.CoreCompileInputs.cache
+D:\project\Open-World-Template\SourceGenerators\obj\Debug\netstandard2.0\Glai.ECS.SourceGen.sourcelink.json
+D:\project\Open-World-Template\SourceGenerators\obj\Debug\netstandard2.0\Glai.ECS.SourceGen.dll
+D:\project\Open-World-Template\SourceGenerators\obj\Debug\netstandard2.0\Glai.ECS.SourceGen.pdb

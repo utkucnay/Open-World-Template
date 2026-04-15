@@ -115,31 +115,50 @@ namespace Glai.ECS.SourceGen
             chunkArgs.Append("ref Job");
             for (int i = 0; i < arity; i++)
                 chunkArgs.Append($", chunk.GetComponentPtr(_s{i})");
-            for (int i = 0; i < arity; i++)
-                chunkArgs.Append($", chunk.GetComponentSize(_s{i})");
             chunkArgs.Append(", chunk.EntityCount");
             sb.AppendLine($"{indent}        ExecuteChunkBurst({chunkArgs});");
             sb.AppendLine($"{indent}    }}");
             sb.AppendLine();
 
             // ExecuteChunkBurst — the [BurstCompile] entry point (concrete, non-generic)
+            // Uses typed pointer casts instead of runtime strides so LLVM can vectorize.
             sb.AppendLine($"{indent}    [BurstCompile]");
             var burstParams = new StringBuilder();
             burstParams.Append($"ref {model.JobFullyQualifiedName} job");
             for (int i = 0; i < arity; i++)
                 burstParams.Append($", byte* c{i}");
-            for (int i = 0; i < arity; i++)
-                burstParams.Append($", int stride{i}");
             burstParams.Append(", int count");
             sb.AppendLine($"{indent}    internal static void ExecuteChunkBurst({burstParams})");
             sb.AppendLine($"{indent}    {{");
-            sb.AppendLine($"{indent}        for (int i = 0; i < count; i++)");
+
+            // Cast byte pointers to typed pointers — compile-time element size enables vectorization
+            for (int i = 0; i < arity; i++)
+                sb.AppendLine($"{indent}        {model.ComponentFullNames[i]}* p{i} = ({model.ComponentFullNames[i]}*)c{i};");
+
+            // 4x unrolled main loop — wider scheduling window helps LLVM/Burst vectorize
+            sb.AppendLine($"{indent}        int stop = count & ~3;");
+            sb.AppendLine($"{indent}        for (int i = 0; i < stop; i += 4)");
+            sb.AppendLine($"{indent}        {{");
+            for (int u = 0; u < 4; u++)
+            {
+                var execArgsU = new StringBuilder();
+                for (int i = 0; i < arity; i++)
+                {
+                    if (i > 0) execArgsU.Append(", ");
+                    execArgsU.Append($"ref p{i}[i + {u}]");
+                }
+                sb.AppendLine($"{indent}            job.Execute({execArgsU});");
+            }
+            sb.AppendLine($"{indent}        }}");
+
+            // Scalar remainder
+            sb.AppendLine($"{indent}        for (int i = stop; i < count; i++)");
             sb.AppendLine($"{indent}        {{");
             var execArgs = new StringBuilder();
             for (int i = 0; i < arity; i++)
             {
                 if (i > 0) execArgs.Append(", ");
-                execArgs.Append($"ref Unity.Collections.LowLevel.Unsafe.UnsafeUtility.AsRef<{model.ComponentFullNames[i]}>(c{i} + i * stride{i})");
+                execArgs.Append($"ref p{i}[i]");
             }
             sb.AppendLine($"{indent}            job.Execute({execArgs});");
             sb.AppendLine($"{indent}        }}");
