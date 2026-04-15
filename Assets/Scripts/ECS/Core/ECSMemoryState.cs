@@ -10,9 +10,11 @@ namespace Glai.ECS.Core
 
         private FixedStack<MemoryStateHandle> chunkStackHandles;
         private FixedStack<MemoryStateHandle> queryBuilderHandles;
+        private FixedStack<MemoryStateHandle> systemArenaHandles;
         const int maxStackCount = 100;
         int createdChunkStackCount;
         int createdQueryBuilderStackCount;
+        int createdSystemArenaCount;
 
         public ECSMemoryState()
         {
@@ -24,8 +26,10 @@ namespace Glai.ECS.Core
 
             chunkStackHandles = new FixedStack<MemoryStateHandle>(maxStackCount, persistHandle, this);
             queryBuilderHandles = new FixedStack<MemoryStateHandle>(maxStackCount, persistHandle, this);
+            systemArenaHandles = new FixedStack<MemoryStateHandle>(maxStackCount, persistHandle, this);
             createdChunkStackCount = 0;
             createdQueryBuilderStackCount = 0;
+            createdSystemArenaCount = 0;
         }
 
         public override void Dispose()
@@ -34,6 +38,7 @@ namespace Glai.ECS.Core
 
             chunkStackHandles.Dispose(this);
             queryBuilderHandles.Dispose(this);
+            systemArenaHandles.Dispose(this);
             base.Dispose();
         }
 
@@ -93,6 +98,40 @@ namespace Glai.ECS.Core
         public void PushQueryBuilderHandle(MemoryStateHandle handle)
         {
             queryBuilderHandles.Push(handle);
+        }
+
+        public MemoryStateHandle PopSystemArenaHandle()
+        {
+            if (systemArenaHandles.Count > 0)
+            {
+                return systemArenaHandles.Pop();
+            }
+
+            if (createdSystemArenaCount < maxStackCount)
+            {
+                int arenaIndex = createdSystemArenaCount;
+                createdSystemArenaCount++;
+
+                return AddAllocator(new Arena(new ArenaData()
+                {
+                    name = $"ECS_SystemArena_{arenaIndex}",
+                    capacityBytes = Math.KB(256),
+                    maxHandles = 100
+                }));
+            }
+
+            LogError("No more system arena allocators available in ECSMemoryState.");
+            return default;
+        }
+
+        public IAllocator GetAllocator(MemoryStateHandle handle)
+        {
+            return Get<IAllocator>(handle);
+        }
+
+        public void PushSystemArenaHandle(MemoryStateHandle handle)
+        {
+            systemArenaHandles.Push(handle);
         }
     }
 }

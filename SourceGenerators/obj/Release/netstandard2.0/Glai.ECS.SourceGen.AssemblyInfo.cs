@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Glai.ECS.SourceGen")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+9a482af5404501550f7bb50bef7689d97fd405d9")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1d8d1bb40d73187343ed8d414e02ef7ffaca3e16")]
 [assembly: System.Reflection.AssemblyProductAttribute("Glai.ECS.SourceGen")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Glai.ECS.SourceGen")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

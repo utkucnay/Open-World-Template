@@ -158,14 +158,6 @@ namespace Glai.ECS.Core
             return swappedEntityId;
         }
 
-        public int GetActiveChunk(int i)
-        {
-            if (i < fullChunkIndices.Count) return fullChunkIndices[i];
-            i -= fullChunkIndices.Count;
-            if (i < availableChunkIndices.Count) return availableChunkIndices[i];
-            return -1;
-        }
-
         public ref T GetComponent<T>(EntityRecord entityRecord) where T : unmanaged, IComponent
         {
             int componentIndex = GetComponentStorageIndex(TypeId<T>.Id);

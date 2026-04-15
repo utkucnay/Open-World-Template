@@ -232,17 +232,6 @@ namespace Glai.ECS
             return new QueryBuilder(ecsMemoryState.PopQueryBuilderHandle(), ecsMemoryState);
         }
 
-        public void DisposeQuery(ref QueryBuilder query)
-        {
-            if (query.disposed) return;
-
-            query.noneTypeIds.Dispose(ecsMemoryState);
-            query.anyTypeIds.Dispose(ecsMemoryState);
-            query.allTypeIds.Dispose(ecsMemoryState);
-            ecsMemoryState.PushQueryBuilderHandle(query.memoryStateHandle);
-            query.disposed = true;
-        }
-
         private bool MatchesQuery(in QueryBuilder query, ref Archetype archetype)
         {
             for (int i = 0; i < query.allTypeIds.Count; i++)
@@ -282,29 +271,36 @@ namespace Glai.ECS
             return true;
         }
 
-        public void Run<TDispatch>(QueryBuilder query, ref TDispatch dispatch)
-            where TDispatch : struct, IQueryJobDispatch
+        public SystemHandle Run<TDispatch>(QueryBuilder query, ref TDispatch dispatch)
+            where TDispatch : struct, ISystemDispatch
         {
-            try
-            {
-                for (int a = 0; a < archeTypes.Count; a++)
-                {
-                    ref var archetype = ref archeTypes.Get(a);
-                    if (!MatchesQuery(query, ref archetype)) continue;
-                    if (!dispatch.PrepareArchetype(ref archetype)) continue;
+            var arenaHandle = ecsMemoryState.PopSystemArenaHandle();
 
-                    for (int c = 0; c < archetype.ChunkCount; c++)
-                    {
-                        ref var chunk = ref archetype.GetChunk(c);
-                        if (chunk.EntityCount == 0) continue;
-                        dispatch.ExecuteChunk(ref chunk);
-                    }
+            // Compute upper bound of total chunks across all archetypes
+            int maxChunks = 1;
+            for (int a = 0; a < archeTypes.Count; a++)
+                maxChunks += archeTypes.Get(a).ChunkCount;
+
+            dispatch.Prepare(arenaHandle, ecsMemoryState, maxChunks);
+
+            int chunkIndex = 0;
+            for (int a = 0; a < archeTypes.Count; a++)
+            {
+                ref var archetype = ref archeTypes.Get(a);
+                if (!MatchesQuery(query, ref archetype)) continue;
+                if (!dispatch.PrepareArchetype(ref archetype)) continue;
+
+                for (int c = 0; c < archetype.ChunkCount; c++)
+                {
+                    ref var chunk = ref archetype.GetChunk(c);
+                    if (chunk.EntityCount == 0) continue;
+                    dispatch.CollectChunk(ref chunk, chunkIndex);
+                    chunkIndex++;
                 }
             }
-            finally
-            {
-                DisposeQuery(ref query);
-            }
+
+            var jobHandle = dispatch.ScheduleParallel(chunkIndex);
+            return new SystemHandle(jobHandle, arenaHandle, ecsMemoryState, query);
         }
     }
 }

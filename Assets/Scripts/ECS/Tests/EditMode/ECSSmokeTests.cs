@@ -33,13 +33,12 @@ namespace Glai.ECS.Tests.EditMode
     internal struct Comp6 : IComponent { public int Value; }
     internal struct Comp7 : IComponent { public int Value; }
 
-    // Job structs must be non-nested so the source generator can emit
+    // System structs must be non-nested so the source generator can emit
     // concrete [BurstCompile] dispatch wrappers for them.
 
     [BurstCompile]
-    internal struct AddTenJob : IQueryJob<Position>
+    internal struct AddTenSystem : ISystem<Position>
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Execute(ref Position c1)
         {
             c1.Value += 10;
@@ -47,9 +46,8 @@ namespace Glai.ECS.Tests.EditMode
     }
 
     [BurstCompile]
-    internal struct DoublePositionScaleJob : IQueryJob<Position, Scale>
+    internal struct DoublePositionScaleSystem : ISystem<Position, Scale>
     {
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Execute(ref Position c1, ref Scale c2)
         {
             c1.Value *= 2;
@@ -58,7 +56,7 @@ namespace Glai.ECS.Tests.EditMode
     }
 
     [BurstCompile]
-    internal struct SetOneJob : IQueryJob<Position, Scale>
+    internal struct SetOneSystem : ISystem<Position, Scale>
     {
         public void Execute(ref Position c1, ref Scale c2)
         {
@@ -68,7 +66,7 @@ namespace Glai.ECS.Tests.EditMode
     }
 
     [BurstCompile]
-    internal struct AddTenCountJob : IQueryJob<Position>
+    internal struct AddTenCountSystem : ISystem<Position>
     {
         public void Execute(ref Position c1)
         {
@@ -77,14 +75,10 @@ namespace Glai.ECS.Tests.EditMode
     }
 
     [BurstCompile]
-    internal struct IncrementAll7Job : IQueryJob<Comp1, Comp2, Comp3, Comp4, Comp5, Comp6, Comp7>
+    internal struct IncrementAll7System : ISystem<Comp1, Comp2, Comp3, Comp4, Comp5, Comp6, Comp7>
     {
-        int pos;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Execute(ref Comp1 c1, ref Comp2 c2, ref Comp3 c3, ref Comp4 c4, ref Comp5 c5, ref Comp6 c6, ref Comp7 c7)
         {
-            IncreasePosition();
             c1.Value += 1;
             c2.Value += 1;
             c3.Value += 1;
@@ -92,12 +86,6 @@ namespace Glai.ECS.Tests.EditMode
             c5.Value += 1;
             c6.Value += 1;
             c7.Value += 1;
-        }
-
-        [BurstDiscard]
-        public void IncreasePosition()
-        {
-            pos ++;
         }
     }
 
@@ -285,7 +273,7 @@ namespace Glai.ECS.Tests.EditMode
         }
 
         [Test]
-        public void EntityManager_Query_WithAllSingleComponent_JobMutatesComponent()
+        public void EntityManager_Run_WithAllSingleComponent_SystemMutatesComponent()
         {
             var manager = new EntityManager();
             manager.Initialize();
@@ -295,15 +283,18 @@ namespace Glai.ECS.Tests.EditMode
             manager.GetComponentRef<Position>(entity).Value = 5;
 
             var query = manager.Query().WithAll<Position>();
-            var job = new AddTenJob();
-            manager.Run(query, ref job);
+            var system = new AddTenSystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
 
             Assert.AreEqual(15, manager.GetComponent<Position>(entity).Value);
+
+            handle.Dispose();
             manager.Dispose();
         }
 
         [Test]
-        public void EntityManager_Query_WithAllTwoComponents_OnlyAffectsMatchingArchetypes()
+        public void EntityManager_Run_WithAllTwoComponents_OnlyAffectsMatchingArchetypes()
         {
             var manager = new EntityManager();
             manager.Initialize();
@@ -319,18 +310,20 @@ namespace Glai.ECS.Tests.EditMode
             manager.GetComponentRef<Scale>(matchingEntity).Value = 3;
 
             var query = manager.Query().WithAll<Position, Scale>();
-            var job = new DoublePositionScaleJob();
-            manager.Run(query, ref job);
+            var system = new DoublePositionScaleSystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
 
-            //Assert.AreEqual(1, job.Processed);
             Assert.AreEqual(1, manager.GetComponent<Position>(positionOnlyEntity).Value);
             Assert.AreEqual(4, manager.GetComponent<Position>(matchingEntity).Value);
             Assert.AreEqual(6, manager.GetComponent<Scale>(matchingEntity).Value);
+
+            handle.Dispose();
             manager.Dispose();
         }
 
         [Test]
-        public void EntityManager_Query_WithAll_SkipsDestroyedEntities()
+        public void EntityManager_Run_WithAll_SkipsDestroyedEntities()
         {
             var manager = new EntityManager();
             manager.Initialize();
@@ -342,17 +335,19 @@ namespace Glai.ECS.Tests.EditMode
             manager.DestroyEntity(toDestroy);
 
             var query = manager.Query().WithAll<Position, Scale>();
-            var job = new SetOneJob();
-            manager.Run(query, ref job);
+            var system = new SetOneSystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
 
-            //Assert.AreEqual(1, job.Processed);
             Assert.AreEqual(1, manager.GetComponent<Position>(alive).Value);
             Assert.AreEqual(1, manager.GetComponent<Scale>(alive).Value);
+
+            handle.Dispose();
             manager.Dispose();
         }
 
         [Test]
-        public void EntityManager_Query_WithAnyAndWithNone_FiltersCorrectly()
+        public void EntityManager_Run_WithAnyAndWithNone_FiltersCorrectly()
         {
             var manager = new EntityManager();
             manager.Initialize();
@@ -373,18 +368,20 @@ namespace Glai.ECS.Tests.EditMode
             var query = manager.Query()
                 .WithAny<Position, Scale>()
                 .WithNone<Scale>();
-            var job = new AddTenCountJob();
-            manager.Run(query, ref job);
+            var system = new AddTenCountSystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
 
-            //Assert.AreEqual(1, job.Processed);
             Assert.AreEqual(1, manager.GetComponent<Position>(entityA).Value);
             Assert.AreEqual(12, manager.GetComponent<Position>(entityB).Value);
             Assert.AreEqual(4, manager.GetComponent<Scale>(entityC).Value);
+
+            handle.Dispose();
             manager.Dispose();
         }
 
         [Test]
-        public void EntityManager_Query_T7_JobMutatesAllComponents()
+        public void EntityManager_Run_T7_SystemMutatesAllComponents()
         {
             var manager = new EntityManager();
             manager.Initialize();
@@ -408,12 +405,15 @@ namespace Glai.ECS.Tests.EditMode
             var query = manager.Query()
                 .WithAny<Comp1, Comp2, Comp3, Comp4, Comp5, Comp6, Comp7>()
                 .WithNone<Scale>();
-            var job = new IncrementAll7Job();
-            manager.Run(query, ref job);
+            var system = new IncrementAll7System();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
 
             Assert.AreEqual(2, manager.GetComponent<Comp1>(matchingEntity).Value);
             Assert.AreEqual(2, manager.GetComponent<Comp7>(matchingEntity).Value);
             Assert.AreEqual(5, manager.GetComponent<Comp1>(nonMatchingEntity).Value);
+
+            handle.Dispose();
             manager.Dispose();
         }
 
@@ -428,6 +428,34 @@ namespace Glai.ECS.Tests.EditMode
             manager.Dispose();
 
             Assert.IsNull(IEntityManager.Instance);
+        }
+
+        [Test]
+        public void EntityManager_Run_ReturnsHandle_CompleteAndDispose_Lifecycle()
+        {
+            var manager = new EntityManager();
+            manager.Initialize();
+
+            int archetype = manager.CreateArchetype(new Position());
+            var entity = manager.CreateEntity(archetype);
+            manager.GetComponentRef<Position>(entity).Value = 0;
+
+            var query = manager.Query().WithAll<Position>();
+            var system = new AddTenSystem();
+
+            // Schedule — job is in flight
+            var handle = manager.Run(query, ref system);
+
+            // Complete — wait for job to finish
+            handle.Complete();
+
+            // Results are now available
+            Assert.AreEqual(10, manager.GetComponent<Position>(entity).Value);
+
+            // Dispose — return arena + query to pools
+            handle.Dispose();
+
+            manager.Dispose();
         }
     }
 }
