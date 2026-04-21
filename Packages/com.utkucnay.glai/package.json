@@ -1,0 +1,20 @@
+{
+  "name": "com.utkucnay.glai",
+  "version": "0.0.1",
+  "displayName": "Glai Engine",
+  "description": "Debloated unity engine foundation for gameplay development with Glai project setup tooling.",
+  "unity": "6000.4",
+  "author": {
+    "name": "utkucnay"
+  },
+  "dependencies": {
+    "com.unity.burst": "1.8.29"
+  },
+  "samples": [
+    {
+      "displayName": "Starter Content",
+      "description": "Starter scene and resources used by Glai gameplay samples.",
+      "path": "Samples~/StarterContent"
+    }
+  ]
+}

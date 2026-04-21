@@ -1,0 +1,25 @@
+{
+    "name": "Glai.Module.Tests.EditMode",
+    "rootNamespace": "Glai.Module.Tests.EditMode",
+    "references": [
+        "Glai.Core",
+        "Glai.Module",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

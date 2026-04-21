@@ -1,0 +1,21 @@
+{
+    "name": "Glai.ECS.Core",
+    "rootNamespace": "Glai.ECS.Core",
+    "references": [
+        "GUID:aef9c3fa12088584198934a4b7cf059c",
+        "GUID:d2f8f214d56d0554d87ecef71b8b8a1c",
+        "GUID:c4483608d2cafaa4f8cc502f5da330c3",
+        "GUID:444a257d8ac6d6d4e8be3889150fe56a",
+        "GUID:2665a8d13d1b3f18800f46e256720795",
+        "GUID:e0cd26848372d4e5c891c569017e11f1"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

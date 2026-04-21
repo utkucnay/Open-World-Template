@@ -1,0 +1,26 @@
+{
+    "name": "Glai.ECS.Core.Tests.EditMode",
+    "rootNamespace": "Glai.ECS.Core.Tests.EditMode",
+    "references": [
+        "Glai.ECS.Core",
+        "Glai.Core",
+        "Glai.Allocator",
+        "UnityEngine.TestRunner",
+        "UnityEditor.TestRunner"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [
+        "nunit.framework.dll"
+    ],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

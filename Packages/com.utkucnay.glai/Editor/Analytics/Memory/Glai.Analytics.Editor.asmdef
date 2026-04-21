@@ -1,0 +1,20 @@
+{
+    "name": "Glai.Analytics.Editor",
+    "rootNamespace": "Glai.Analytics.Editor",
+    "references": [
+        "Glai.Core",
+        "Glai.Analytics",
+        "Glai.Allocator"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

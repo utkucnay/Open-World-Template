@@ -1,0 +1,23 @@
+{
+    "name": "Glai.Tween",
+    "rootNamespace": "Glai.Tween",
+    "references": [
+        "GUID:4e0411c512d821b41898236e32184bae",
+        "GUID:aef9c3fa12088584198934a4b7cf059c",
+        "GUID:957832a6ae6af1b4cb9f2e35f8a328f3",
+        "GUID:d2f8f214d56d0554d87ecef71b8b8a1c",
+        "GUID:c4483608d2cafaa4f8cc502f5da330c3",
+        "GUID:444a257d8ac6d6d4e8be3889150fe56a",
+        "GUID:2665a8d13d1b3f18800f46e256720795",
+        "GUID:d8b63aba1907145bea998dd612889d6b"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,49 @@
+<linker>
+  <assembly fullname="Glai.Allocator">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+
+  <assembly fullname="Glai.Analytics">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+
+  <assembly fullname="Glai.Analytics.Memory">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+
+  <assembly fullname="Glai.Collection">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+
+  <assembly fullname="Glai.Core">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+
+  <assembly fullname="Glai.Gameplay">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+
+  <assembly fullname="Glai.ECS.Core">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+
+  <assembly fullname="Glai.Module">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+
+  <assembly fullname="Glai.ECS">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+
+  <assembly fullname="Glai.Mathematics">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+
+  <assembly fullname="Glai.Tween">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+
+  <assembly fullname="Glai.Tween.Core">
+    <type fullname="*" preserve="all"/>
+  </assembly>
+</linker>

@@ -1,0 +1,23 @@
+{
+    "name": "Glai.Core.Editor",
+    "rootNamespace": "Glai.Core.Editor",
+    "references": [
+        "Glai.Core",
+        "Glai.ECS",
+        "Glai.ECS.Core",
+        "Glai.Module",
+        "Glai.Gameplay",
+        "Unity.Mathematics"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
