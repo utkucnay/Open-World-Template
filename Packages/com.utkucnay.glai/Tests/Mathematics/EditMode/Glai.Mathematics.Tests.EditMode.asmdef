@@ -3,7 +3,7 @@
     "rootNamespace": "Glai.Mathematics.Tests.EditMode",
     "references": [
         "Glai.Core",
-        "Glai.Mathematics",
+        "Unity.Mathematics",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

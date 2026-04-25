@@ -41,6 +41,42 @@ namespace Glai.Gameplay.Tests.EditMode
         }
 
         [Test]
+        public unsafe void PackQuaternionYAxisAVX_MatchesScalarPacking()
+        {
+            float* sinHalf = stackalloc float[8]
+            {
+                -1f,
+                -0.75f,
+                -0.25f,
+                0f,
+                0.25f,
+                0.5f,
+                0.75f,
+                1f,
+            };
+            float* cosHalf = stackalloc float[8]
+            {
+                1f,
+                0.75f,
+                0.5f,
+                0.25f,
+                0f,
+                -0.25f,
+                -0.75f,
+                -1f,
+            };
+            uint2* packed = stackalloc uint2[8];
+
+            PackedTransformComponent.PackQuaternionYAxisAVX(sinHalf, cosHalf, packed);
+
+            for (int i = 0; i < 8; i++)
+            {
+                uint2 expected = PackedTransformComponent.PackQuaternionYAxis(new float2(sinHalf[i], cosHalf[i]));
+                Assert.That(packed[i], Is.EqualTo(expected));
+            }
+        }
+
+        [Test]
         public void Rotation_RoundTripsRandomizedNormalizedQuaternions()
         {
             var random = new Unity.Mathematics.Random(0x6E624EB7u);

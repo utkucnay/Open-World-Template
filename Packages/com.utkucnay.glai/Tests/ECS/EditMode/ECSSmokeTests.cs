@@ -39,7 +39,7 @@ namespace Glai.ECS.Tests.EditMode
     [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
     internal struct AddTenSystem
     {
-        public void Execute(Ref<Position> c1)
+        public void Execute(RefRW<Position> c1)
         {
             c1.Value.Value += 10;
         }
@@ -48,7 +48,7 @@ namespace Glai.ECS.Tests.EditMode
     [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
     internal struct DoublePositionScaleSystem
     {
-        public void Execute(Ref<Position> c1, Ref<Scale> c2)
+        public void Execute(RefRW<Position> c1, RefRW<Scale> c2)
         {
             c1.Value.Value *= 2;
             c2.Value.Value *= 2;
@@ -58,7 +58,7 @@ namespace Glai.ECS.Tests.EditMode
     [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
     internal struct SetOneSystem
     {
-        public void Execute(Ref<Position> c1, Ref<Scale> c2)
+        public void Execute(RefRW<Position> c1, RefRW<Scale> c2)
         {
             c1.Value.Value = 1;
             c2.Value.Value = 1;
@@ -68,7 +68,7 @@ namespace Glai.ECS.Tests.EditMode
     [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
     internal struct AddTenCountSystem
     {
-        public void Execute(Ref<Position> c1)
+        public void Execute(RefRW<Position> c1)
         {
             c1.Value.Value += 10;
         }
@@ -77,7 +77,7 @@ namespace Glai.ECS.Tests.EditMode
     [QueryJob(QueryExecution.MainThread), NonBurstQuery]
     internal struct WriteEntityIdSystem
     {
-        public void Execute(int entityId, Ref<Position> c1)
+        public void Execute(int entityId, RefRW<Position> c1)
         {
             c1.Value.Value = entityId;
         }
@@ -86,7 +86,7 @@ namespace Glai.ECS.Tests.EditMode
     [QueryJob(QueryExecution.MainThread), NonBurstQuery]
     internal struct WriteUniqueEntityPhaseSystem
     {
-        public void Execute(int entityId, Ref<Position> c1)
+        public void Execute(int entityId, RefRW<Position> c1)
         {
             c1.Value.Value = entityId * 17 + 3;
         }
@@ -95,7 +95,7 @@ namespace Glai.ECS.Tests.EditMode
     [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
     internal struct IncrementAll7System
     {
-        public void Execute(Ref<Comp1> c1, Ref<Comp2> c2, Ref<Comp3> c3, Ref<Comp4> c4, Ref<Comp5> c5, Ref<Comp6> c6, Ref<Comp7> c7)
+        public void Execute(RefRW<Comp1> c1, RefRW<Comp2> c2, RefRW<Comp3> c3, RefRW<Comp4> c4, RefRW<Comp5> c5, RefRW<Comp6> c6, RefRW<Comp7> c7)
         {
             c1.Value.Value += 1;
             c2.Value.Value += 1;
@@ -104,6 +104,57 @@ namespace Glai.ECS.Tests.EditMode
             c5.Value.Value += 1;
             c6.Value.Value += 1;
             c7.Value.Value += 1;
+        }
+    }
+
+    [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
+    internal struct SimdPrioritySystem
+    {
+        public void Execute(RefRW<Position> c1)
+        {
+            c1.Value.Value += 1;
+        }
+
+        public void ExecuteSSE(RefRW4<Position> c1)
+        {
+            for (int i = 0; i < RefRW4<Position>.Length; i++)
+                c1[i].Value += 10;
+        }
+
+        public void ExecuteAVX(RefRW8<Position> c1)
+        {
+            for (int i = 0; i < RefRW8<Position>.Length; i++)
+                c1[i].Value += 100;
+        }
+    }
+
+    [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
+    internal struct AvxOnlyTailSystem
+    {
+        public void ExecuteAVX(RefRW8<Position> c1)
+        {
+            for (int i = 0; i < RefRW8<Position>.Length; i++)
+                c1[i].Value += 100;
+        }
+    }
+
+    [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
+    internal struct SseOnlyTailSystem
+    {
+        public void ExecuteSSE(RefRW4<Position> c1)
+        {
+            for (int i = 0; i < RefRW4<Position>.Length; i++)
+                c1[i].Value += 10;
+        }
+    }
+
+    [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
+    internal struct SseEntityIdTailSystem
+    {
+        public void ExecuteSSE(EntityId4 entityIds, RefRW4<Position> c1)
+        {
+            for (int i = 0; i < EntityId4.Length; i++)
+                c1[i].Value = entityIds[i];
         }
     }
 
@@ -581,6 +632,121 @@ namespace Glai.ECS.Tests.EditMode
             Assert.AreEqual(2, manager.GetComponent<Comp1>(matchingEntity).Value);
             Assert.AreEqual(2, manager.GetComponent<Comp7>(matchingEntity).Value);
             Assert.AreEqual(5, manager.GetComponent<Comp1>(nonMatchingEntity).Value);
+
+            handle.Dispose();
+            manager.Dispose();
+        }
+
+        [Test]
+        public void EntityManager_Run_WithSimdMethods_UsesHighestSupportedPriorityForAllEntities()
+        {
+            var manager = new EntityManager();
+            manager.Initialize();
+
+            int archetype = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Component<Position>() });
+            var entities = new Entity[11];
+            for (int i = 0; i < entities.Length; i++)
+            {
+                entities[i] = manager.CreateEntity(archetype);
+                manager.GetComponentRef<Position>(entities[i]).Value = i;
+            }
+
+            var query = manager.Query().WithAll<Position>();
+            var system = new SimdPrioritySystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
+
+            int expectedDelta = manager.GetComponent<Position>(entities[0]).Value;
+            Assert.Contains(expectedDelta, new[] { 1, 10, 100 });
+            for (int i = 0; i < entities.Length; i++)
+                Assert.AreEqual(i + expectedDelta, manager.GetComponent<Position>(entities[i]).Value);
+
+            handle.Dispose();
+            manager.Dispose();
+        }
+
+        [Test]
+        public void EntityManager_Run_WithAvxOnlyMethod_UsesPaddedTailBatch()
+        {
+            if (!Unity.Burst.Intrinsics.X86.Avx2.IsAvx2Supported)
+                Assert.Ignore("AVX2 is not supported on this CPU.");
+
+            var manager = new EntityManager();
+            manager.Initialize();
+
+            int archetype = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Component<Position>() });
+            var entities = new Entity[11];
+            for (int i = 0; i < entities.Length; i++)
+            {
+                entities[i] = manager.CreateEntity(archetype);
+                manager.GetComponentRef<Position>(entities[i]).Value = i;
+            }
+
+            var query = manager.Query().WithAll<Position>();
+            var system = new AvxOnlyTailSystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
+
+            for (int i = 0; i < entities.Length; i++)
+                Assert.AreEqual(i + 100, manager.GetComponent<Position>(entities[i]).Value);
+
+            handle.Dispose();
+            manager.Dispose();
+        }
+
+        [Test]
+        public void EntityManager_Run_WithSseOnlyMethod_UsesPaddedTailBatch()
+        {
+            if (!Unity.Burst.Intrinsics.X86.Sse4_2.IsSse42Supported)
+                Assert.Ignore("SSE4.2 is not supported on this CPU.");
+
+            var manager = new EntityManager();
+            manager.Initialize();
+
+            int archetype = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Component<Position>() });
+            var entities = new Entity[7];
+            for (int i = 0; i < entities.Length; i++)
+            {
+                entities[i] = manager.CreateEntity(archetype);
+                manager.GetComponentRef<Position>(entities[i]).Value = i;
+            }
+
+            var query = manager.Query().WithAll<Position>();
+            var system = new SseOnlyTailSystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
+
+            for (int i = 0; i < entities.Length; i++)
+                Assert.AreEqual(i + 10, manager.GetComponent<Position>(entities[i]).Value);
+
+            handle.Dispose();
+            manager.Dispose();
+        }
+
+        [Test]
+        public void EntityManager_Run_WithSseEntityIds_UsesPaddedTailBatch()
+        {
+            if (!Unity.Burst.Intrinsics.X86.Sse4_2.IsSse42Supported)
+                Assert.Ignore("SSE4.2 is not supported on this CPU.");
+
+            var manager = new EntityManager();
+            manager.Initialize();
+
+            int archetype = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Component<Position>() });
+            var entities = new Entity[7];
+            for (int i = 0; i < entities.Length; i++)
+            {
+                entities[i] = manager.CreateEntity(archetype);
+                manager.GetComponentRef<Position>(entities[i]).Value = -1;
+            }
+
+            var query = manager.Query().WithAll<Position>();
+            var system = new SseEntityIdTailSystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
+
+            for (int i = 0; i < entities.Length; i++)
+                Assert.AreEqual(entities[i].Id, manager.GetComponent<Position>(entities[i]).Value);
 
             handle.Dispose();
             manager.Dispose();

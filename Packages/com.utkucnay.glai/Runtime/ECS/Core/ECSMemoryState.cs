@@ -1,64 +1,73 @@
 using Glai.Allocator;
 using Glai.Collection;
-using Glai.Mathematics;
 
 namespace Glai.ECS.Core
 {
     public class ECSMemoryState : MemoryState
     {
+        readonly ECSMemoryConfig config;
+        public ECSMemoryConfig Config => config;
+
         public MemoryStateHandle persistHandle { get; private set; }
 
         private FixedStack<MemoryStateHandle> chunkStackHandles;
         private FixedStack<MemoryStateHandle> queryBuilderHandles;
         private FixedStack<MemoryStateHandle> systemArenaHandles;
 
-        public ECSMemoryState()
+        private int createdChunkStackCount;
+        private int createdQueryBuilderStackCount;
+        private int createdSystemArenaCount;
+
+        public ECSMemoryState() : this(ECSMemoryConfig.Default)
         {
+        }
+
+        public ECSMemoryState(ECSMemoryConfig config)
+        {
+            this.config = config;
             persistHandle = AddAllocator(new Persist(new PersistData(){
                 name = "ECS_Persist",
-                capacityBytes = Math.MB(10),
-                maxHandles = 500
+                capacityBytes = config.PersistCapacityBytes.Bytes,
+                maxHandles = config.PersistMaxHandles
             }));
 
-            var chunkStackSize = 200;
-            var queryBuilderStackSize = 100; 
-            var systemArenaSize = 100;
+            chunkStackHandles = new FixedStack<MemoryStateHandle>(config.ChunkStackSize, persistHandle, this);
+            queryBuilderHandles = new FixedStack<MemoryStateHandle>(config.QueryBuilderStackSize, persistHandle, this);
+            systemArenaHandles = new FixedStack<MemoryStateHandle>(config.SystemArenaSize, persistHandle, this);
+        }
 
-            chunkStackHandles = new FixedStack<MemoryStateHandle>(chunkStackSize, persistHandle, this);
-            queryBuilderHandles = new FixedStack<MemoryStateHandle>(queryBuilderStackSize, persistHandle, this);
-            systemArenaHandles = new FixedStack<MemoryStateHandle>(systemArenaSize, persistHandle, this);
+        private MemoryStateHandle CreateChunkStackHandle()
+        {
+            int index = createdChunkStackCount++;
+            return AddAllocator(new Arena(new ArenaData()
+            {
+                name = $"ECS_ChunkStack_{index}",
+                alignmentBytes = config.ChunkAllocatorAlignmentBytes,
+                capacityBytes = config.ChunkAllocatorCapacityBytes.Bytes,
+                maxHandles = config.ChunkAllocatorMaxHandles
+            }));
+        }
 
-            for (int i = 0; i < chunkStackSize; i++)
+        private MemoryStateHandle CreateQueryBuilderHandle()
+        {
+            int index = createdQueryBuilderStackCount++;
+            return AddAllocator(new Stack(new StackData()
             {
-                var chunkStackHandle = AddAllocator(new Arena(new ArenaData()
-                {
-                    name = $"ECS_ChunkStack_{i}",
-                    capacityBytes = Math.KB(32),
-                    maxHandles = 1
-                }));
-                chunkStackHandles.Push(chunkStackHandle);
-            }
-            for (int i = 0; i < queryBuilderStackSize; i++)
-            {
-                var queryBuilderHandle = AddAllocator(new Stack(new StackData()
-                {
-                    name = $"ECS_QueryBuilderStack_{i}",
-                    capacityBytes = Math.KB(160),
-                    maxHandles = 100
-                }));
-                queryBuilderHandles.Push(queryBuilderHandle);        
-            }
+                name = $"ECS_QueryBuilderStack_{index}",
+                capacityBytes = config.QueryBuilderCapacityBytes.Bytes,
+                maxHandles = config.QueryBuilderMaxHandles
+            }));
+        }
 
-            for (int i = 0; i < systemArenaSize; i++)
+        private MemoryStateHandle CreateSystemArenaHandle()
+        {
+            int index = createdSystemArenaCount++;
+            return AddAllocator(new Arena(new ArenaData()
             {
-                var systemArenaHandle = AddAllocator(new Arena(new ArenaData()
-                {
-                    name = $"ECS_SystemArena_{i}",
-                    capacityBytes = Math.KB(160),
-                    maxHandles = 100
-                }));
-                systemArenaHandles.Push(systemArenaHandle);
-            }
+                name = $"ECS_SystemArena_{index}",
+                capacityBytes = config.SystemArenaCapacityBytes.Bytes,
+                maxHandles = config.SystemArenaMaxHandles
+            }));
         }
 
         public override void Dispose()
@@ -78,6 +87,11 @@ namespace Glai.ECS.Core
                 return chunkStackHandles.Pop();
             }
 
+            if (createdChunkStackCount < config.ChunkStackSize)
+            {
+                return CreateChunkStackHandle();
+            }
+
             LogError("No more stack allocators available in ECSMemoryState.");
             return default;
         }
@@ -95,6 +109,11 @@ namespace Glai.ECS.Core
                 return queryBuilderHandles.Pop();
             }
 
+            if (createdQueryBuilderStackCount < config.QueryBuilderStackSize)
+            {
+                return CreateQueryBuilderHandle();
+            }
+
             LogError("No more query builder allocators available in ECSMemoryState.");
             return default;
         }
@@ -109,6 +128,11 @@ namespace Glai.ECS.Core
             if (systemArenaHandles.Count > 0)
             {
                 return systemArenaHandles.Pop();
+            }
+
+            if (createdSystemArenaCount < config.SystemArenaSize)
+            {
+                return CreateSystemArenaHandle();
             }
 
             LogError("No more system arena allocators available in ECSMemoryState.");

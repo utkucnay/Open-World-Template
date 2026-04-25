@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 61ba7f11142a4f4d93e44b2791d9a640, type: 3}
+  m_Name: GameplayConfig
+  m_EditorClassIdentifier: Glai.Gameplay::Glai.Gameplay.GameplayConfigAsset
+  GameplayManager:
+    ArchetypeListCapacity: 2
+    RenderEntityCount: 100000
+    RenderGridWidth: 1000
+    RenderGridSpacing: 2
+    Memory:
+      PersistCapacityBytes:
+        Value: 16
+        Unit: 2
+      PersistMaxHandles: 100
+    Player:
+      MoveSpeed: 10
+      FastMoveMultiplier: 3
+      LookSensitivity: 180
+      DefaultCameraPosition: {x: 100, y: 160, z: -160}
+      LookTarget: {x: 100, y: 0, z: 900}
+      MinPitch: -89
+      MaxPitch: 89
+    Turn:
+      PhaseMultiplier: 0.173
+      VerticalAmplitude: 2
+      RotationHalfAngleMultiplier: 0.5
+    MeshRenderer:
+      CubesPerCluster: 3072
+      MeshResourcePath: Cube.fbx
+      MaterialResourcePath: Material/IndirectDefault
+      YAxisRotationKeyword: _GLAI_Y_AXIS_ROTATION
+      PackedTransformBufferProperty: _PackedTransformBuffer
+      ClusterSizeProperty: _ClusterSize
+      WorldBoundsSize: 1000000
+      BoundsUpdateIntervalFrames: 0
+      DummyHiddenY: -100000
+      InitialCapacity: 1
+      CastShadows: 1
+      ReceiveShadows: 1

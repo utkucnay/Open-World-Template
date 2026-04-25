@@ -7,16 +7,18 @@ namespace Glai.Gameplay
     public class PlayerSystem : System
     {
         Entity cameraEntity;
+        PlayerSystemConfig config;
         float yaw;
         float pitch;
 
-        const float MoveSpeed = 10f;
-        const float FastMoveMultiplier = 3f;
-        const float LookSensitivity = 180f;
+        public PlayerSystem(Entity playerEntity) : this(playerEntity, PlayerSystemConfig.Default)
+        {
+        }
 
-        public PlayerSystem(Entity playerEntity)
+        public PlayerSystem(Entity playerEntity, PlayerSystemConfig config)
         {
             this.cameraEntity = playerEntity;
+            this.config = config;
         }
 
         public override void Start()
@@ -28,9 +30,7 @@ namespace Glai.Gameplay
             }
 
             var cameraTransform = Camera.main.transform;
-            Vector3 defaultCameraPosition = new Vector3(100f, 160f, -160f);
-            Vector3 lookTarget = new Vector3(100f, 0f, 900f);
-            cameraTransform.SetPositionAndRotation(defaultCameraPosition, Quaternion.LookRotation(lookTarget - defaultCameraPosition, Vector3.up));
+            cameraTransform.SetPositionAndRotation(config.DefaultCameraPosition, Quaternion.LookRotation(config.LookTarget - config.DefaultCameraPosition, Vector3.up));
             var rotation = cameraTransform.rotation;
             var eulerAngles = rotation.eulerAngles;
 
@@ -54,8 +54,8 @@ namespace Glai.Gameplay
             if (isLooking)
             {
                 var mouseDelta = new float2(Input.GetAxis("Mouse X"), Input.GetAxis("Mouse Y"));
-                yaw += mouseDelta.x * LookSensitivity * deltaTime;
-                pitch = math.clamp(pitch - mouseDelta.y * LookSensitivity * deltaTime, -89f, 89f);
+                yaw += mouseDelta.x * config.LookSensitivity * deltaTime;
+                pitch = math.clamp(pitch - mouseDelta.y * config.LookSensitivity * deltaTime, config.MinPitch, config.MaxPitch);
             }
 
             quaternion rotation = quaternion.Euler(math.radians(new float3(pitch, yaw, 0f)));
@@ -96,8 +96,8 @@ namespace Glai.Gameplay
             if (!moveDirection.Equals(float3.zero))
             {
                 float speed = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift)
-                    ? MoveSpeed * FastMoveMultiplier
-                    : MoveSpeed;
+                    ? config.MoveSpeed * config.FastMoveMultiplier
+                    : config.MoveSpeed;
 
                 transform.position += math.normalizesafe(moveDirection) * speed * deltaTime;
             }

@@ -7,13 +7,17 @@ namespace Glai.Gameplay.Core
     {
         public MemoryStateHandle persistHandle;
 
-        public GameplayMemoryState() : base()
+        public GameplayMemoryState() : this(GameplayMemoryConfig.Default)
+        {
+        }
+
+        public GameplayMemoryState(GameplayMemoryConfig config) : base()
         {
             persistHandle = AddAllocator(new Persist(new PersistData()
             {
                 name = "GameplayMemoryState",
-                capacityBytes = 16 * 1024 * 1024,
-                maxHandles = 100
+                capacityBytes = config.PersistCapacityBytes.Bytes,
+                maxHandles = config.PersistMaxHandles
             }));
         }  
     }  

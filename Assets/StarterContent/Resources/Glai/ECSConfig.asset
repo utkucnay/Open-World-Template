@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd0bbfc3fd1d4b4796178fa1e4f9ad06, type: 3}
+  m_Name: ECSConfig
+  m_EditorClassIdentifier: Glai.ECS::Glai.ECS.ECSConfigAsset
+  EntityManager:
+    MaxArchetypeCount: 128
+    MaxEntityCount: 300000
+    Memory:
+      PersistCapacityBytes:
+        Value: 10
+        Unit: 2
+      PersistMaxHandles: 1000
+      ChunkStackSize: 500
+      QueryBuilderStackSize: 100
+      SystemArenaSize: 100
+      ChunkAllocatorAlignmentBytes: 64
+      ChunkAllocatorCapacityBytes:
+        Value: 32
+        Unit: 1
+      ChunkAllocatorMaxHandles: 1
+      QueryBuilderCapacityBytes:
+        Value: 160
+        Unit: 1
+      QueryBuilderMaxHandles: 100
+      QueryBuilderTypeCapacity: 16
+      SystemArenaCapacityBytes:
+        Value: 160
+        Unit: 1
+      SystemArenaMaxHandles: 100
+    Archetype:
+      ChunkCapacityBytes:
+        Value: 32
+        Unit: 1
+      ChunkAlignmentBytes: 64
+      MaxChunkCount: 500

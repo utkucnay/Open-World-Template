@@ -7,47 +7,74 @@ namespace Glai.Gameplay.Tests.EditMode
 {
     public class IndirectInstancedShaderBindingTests
     {
-        static readonly Regex s_VertexReadBufferPattern = new Regex(@"StructuredBuffer<\s*TransformData\s*>\s+(_\w+)\s*;", RegexOptions.Compiled);
+        static readonly Regex s_VertexReadBufferPattern = new Regex(
+            @"StructuredBuffer<\s*TransformData\s*>\s+(_\w+)\s*;", RegexOptions.Compiled);
 
         [Test]
         public void IndirectShader_ReadsPackedTransformBufferDirectly()
         {
-            string drawShaderSource = ReadAssetText("Resources/Shaders/IndirectInstancedLit.shader");
+            string src = ReadAssetText("StarterContent/Resources/Shaders/IndirectInstancedLit.shader");
 
-            string drawBufferName = GetRequiredBufferName(s_VertexReadBufferPattern, drawShaderSource, "vertex shader input");
+            string bufferName = GetRequiredBufferName(s_VertexReadBufferPattern, src, "TransformData buffer");
+            Assert.That(bufferName, Is.EqualTo("_PackedTransformBuffer"));
 
-            Assert.That(drawBufferName, Is.EqualTo("_PackedTransformBuffer"));
-            StringAssert.Contains("half4 UnpackRGBA16Snorm(uint xy, uint zw)", drawShaderSource);
-            StringAssert.Contains("return _PackedTransformBuffer[transformIndex];", drawShaderSource);
+            StringAssert.Contains("#pragma shader_feature_local _GLAI_Y_AXIS_ROTATION", src);
+            StringAssert.Contains("half4 UnpackRGBA16Snorm(uint xy, uint zw)", src);
+            StringAssert.Contains("half2 UnpackYAxis16Snorm(uint xy, uint zw)", src);
+            StringAssert.Contains("return _PackedTransformBuffer[transformIndex];", src);
         }
 
         [Test]
-        public void IndirectShader_UsesBuiltInForwardPipelineAndMetallicWorkflowProperties()
+        public void IndirectShader_UsesBuiltInForwardPipelineAndShadowPasses()
         {
-            string drawShaderSource = ReadAssetText("Resources/Shaders/IndirectInstancedLit.shader");
+            string src = ReadAssetText("StarterContent/Resources/Shaders/IndirectInstancedLit.shader");
 
-            StringAssert.Contains("Shader \"Glai/IndirectInstancedLit\"", drawShaderSource);
-            StringAssert.DoesNotContain("\"RenderPipeline\" = \"UniversalPipeline\"", drawShaderSource);
-            StringAssert.Contains("\"LightMode\" = \"ForwardBase\"", drawShaderSource);
-            StringAssert.Contains("\"LightMode\" = \"ForwardAdd\"", drawShaderSource);
-            StringAssert.Contains("\"LightMode\" = \"ShadowCaster\"", drawShaderSource);
-            StringAssert.Contains("#include \"Lighting.cginc\"", drawShaderSource);
-            StringAssert.Contains("#include \"AutoLight.cginc\"", drawShaderSource);
-            StringAssert.Contains("_Metallic(\"Metallic\"", drawShaderSource);
-            StringAssert.Contains("_Smoothness(\"Smoothness\"", drawShaderSource);
-            StringAssert.Contains("_SpecGlossMap", drawShaderSource);
-            StringAssert.Contains("_MetallicGlossMap", drawShaderSource);
+            StringAssert.Contains("Shader \"Glai/IndirectInstancedLit\"", src);
+            StringAssert.DoesNotContain("\"RenderPipeline\" = \"UniversalPipeline\"", src);
+
+            StringAssert.Contains("\"LightMode\" = \"ForwardBase\"", src);
+            StringAssert.Contains("\"LightMode\" = \"ForwardAdd\"", src);
+            StringAssert.Contains("\"LightMode\" = \"ShadowCaster\"", src);
+
+            // Standard PBR includes used in forward passes
+            StringAssert.Contains("#include \"UnityStandardCore.cginc\"", src);
+            // AutoLight is pulled in by UnityStandardCore, not explicitly listed here
+            // (UnityStandardCore.cginc includes AutoLight.cginc internally)
         }
 
         [Test]
         public void IndirectShader_SupportsClusteredCubeMeshIndexing()
         {
-            string drawShaderSource = ReadAssetText("Resources/Shaders/IndirectInstancedLit.shader");
+            string src = ReadAssetText("StarterContent/Resources/Shaders/IndirectInstancedLit.shader");
 
-            StringAssert.Contains("uint _ClusterSize;", drawShaderSource);
-            StringAssert.Contains("float2 clusterCoord : TEXCOORD1;", drawShaderSource);
-            StringAssert.Contains("uint cubeIndex = (uint)input.clusterCoord.x;", drawShaderSource);
-            StringAssert.Contains("uint transformIndex = instanceID * _ClusterSize + cubeIndex;", drawShaderSource);
+            StringAssert.Contains("uint _ClusterSize;", src);
+            StringAssert.Contains("float2 clusterCoord : TEXCOORD3;", src);
+            StringAssert.Contains("uint cubeIndex      = (uint)v.clusterCoord.x;", src);
+            StringAssert.Contains("uint transformIndex = instanceID * _ClusterSize + cubeIndex;", src);
+        }
+
+        [Test]
+        public void IndirectShader_IsStandardPBRWithIndirectVertex()
+        {
+            string src = ReadAssetText("StarterContent/Resources/Shaders/IndirectInstancedLit.shader");
+
+            // Standard properties present
+            StringAssert.Contains("_Color", src);
+            StringAssert.Contains("_MainTex", src);
+            StringAssert.Contains("_Metallic", src);
+            StringAssert.Contains("_Glossiness", src);
+            StringAssert.Contains("_BumpMap", src);
+
+            // Standard CustomEditor
+            StringAssert.Contains("CustomEditor \"StandardShaderGUI\"", src);
+
+            // Our custom vertex functions call fragForwardBaseInternal / fragForwardAddInternal
+            StringAssert.Contains("fragForwardBaseInternal(i)", src);
+            StringAssert.Contains("fragForwardAddInternal(i)", src);
+
+            // Shadow pass has normal-bias and linear shadow bias
+            StringAssert.Contains("UnityApplyLinearShadowBias(", src);
+            StringAssert.Contains("unity_LightShadowBias.z", src);
         }
 
         static string ReadAssetText(string relativeAssetPath)

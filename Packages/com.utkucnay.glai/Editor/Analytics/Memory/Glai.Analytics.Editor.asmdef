@@ -3,8 +3,8 @@
     "rootNamespace": "Glai.Analytics.Editor",
     "references": [
         "Glai.Core",
-        "Glai.Analytics",
-        "Glai.Allocator"
+        "Glai.Module",
+        "Glai.Analytics"
     ],
     "includePlatforms": [
         "Editor"

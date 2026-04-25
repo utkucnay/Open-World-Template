@@ -17,9 +17,10 @@ namespace Glai.ECS
         internal QueryBuilder(MemoryStateHandle memoryStateHandle, ECSMemoryState memoryState)
         {
             this.memoryStateHandle = memoryStateHandle;
-            allTypeIds = new FixedList<int>(16, memoryStateHandle, memoryState);
-            anyTypeIds = new FixedList<int>(16, memoryStateHandle, memoryState);
-            noneTypeIds = new FixedList<int>(16, memoryStateHandle, memoryState);
+            int typeCapacity = memoryState.Config.QueryBuilderTypeCapacity;
+            allTypeIds = new FixedList<int>(typeCapacity, memoryStateHandle, memoryState);
+            anyTypeIds = new FixedList<int>(typeCapacity, memoryStateHandle, memoryState);
+            noneTypeIds = new FixedList<int>(typeCapacity, memoryStateHandle, memoryState);
             disposed = false;
         }
 

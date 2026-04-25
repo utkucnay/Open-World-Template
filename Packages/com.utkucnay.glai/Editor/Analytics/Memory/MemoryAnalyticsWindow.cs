@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Glai.Allocator;
+using Glai.Module;
 using UnityEditor;
 using UnityEngine;
 
@@ -20,6 +21,9 @@ namespace Glai.Analytics.Memory.Editor
         private sealed class AnalyticsSnapshot
         {
             public List<AllocatorNode> Groups = new List<AllocatorNode>();
+            public long PoolUsedBytes;
+            public long PoolFreeBytes;
+            public long PoolCapacityBytes;
             public long TotalAllocated;
             public long TotalPeakAllocated;
             public long TotalCapacity;
@@ -160,19 +164,19 @@ namespace Glai.Analytics.Memory.Editor
 
         private void DrawSummary(AnalyticsSnapshot state)
         {
-            long usageBytes = GetDisplayAllocated(state.TotalAllocated, state.TotalPeakAllocated);
-            float totalUsage = state.TotalCapacity > 0 ? (float)usageBytes / state.TotalCapacity : 0f;
+            long usageBytes = state.PoolUsedBytes;
+            float totalUsage = state.PoolCapacityBytes > 0 ? (float)usageBytes / state.PoolCapacityBytes : 0f;
             totalUsage = Mathf.Clamp01(totalUsage);
 
             using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                EditorGUILayout.LabelField("Total", EditorStyles.boldLabel);
+                EditorGUILayout.LabelField("Memory Pool", EditorStyles.boldLabel);
                 EditorGUILayout.LabelField($"Allocators: {state.AllocatorCount}");
-                EditorGUILayout.LabelField($"Allocated: {FormatBytes(usageBytes)} / {FormatBytes(state.TotalCapacity)}");
-                EditorGUILayout.LabelField($"Handles: {GetDisplayHandles(state.TotalHandleCount, state.TotalPeakHandleCount)} / {state.TotalHandleCapacity}");
+                EditorGUILayout.LabelField($"Used: {FormatBytes(usageBytes)} / {FormatBytes(state.PoolCapacityBytes)}");
+                EditorGUILayout.LabelField($"Free: {FormatBytes(state.PoolFreeBytes)}");
                 DrawUsageBar(
                     totalUsage,
-                    GetUsageBarLabel(usageBytes, state.TotalCapacity, totalUsage));
+                    GetUsageBarLabel(usageBytes, state.PoolCapacityBytes, totalUsage));
             }
         }
 
@@ -329,9 +333,14 @@ namespace Glai.Analytics.Memory.Editor
                 out long totalHandleCapacity,
                 out int allocatorCount);
 
+            MemoryPool memoryPool = Global.CurrentDefaultPool;
+
             snapshot = new AnalyticsSnapshot
             {
                 Groups = groups,
+                PoolUsedBytes = memoryPool?.UsedBytes ?? 0,
+                PoolFreeBytes = memoryPool?.FreeBytes ?? 0,
+                PoolCapacityBytes = memoryPool?.Capacity ?? 0,
                 TotalAllocated = totalAllocated,
                 TotalPeakAllocated = totalPeakAllocated,
                 TotalCapacity = totalCapacity,
@@ -345,20 +354,7 @@ namespace Glai.Analytics.Memory.Editor
 
         private static IReadOnlyCollection<IAllocator> GetAllocators()
         {
-            Type analyticsType = Type.GetType("Glai.Analytics.MemoryAnalytics, Glai.Analytics");
-            if (analyticsType == null)
-            {
-                return null;
-            }
-
-            MethodInfo method = analyticsType.GetMethod("GetCollections", BindingFlags.Public | BindingFlags.Static);
-            if (method == null)
-            {
-                return null;
-            }
-
-            object result = method.Invoke(null, null);
-            return result as IReadOnlyCollection<IAllocator>;
+            return ModuleManager.Instance?.GetModule<AnalyticsManager>()?.MemoryAnalytics.GetCollections();
         }
 
         private List<AllocatorNode> BuildGroups(
@@ -450,14 +446,8 @@ namespace Glai.Analytics.Memory.Editor
 
         private static void ResetAllocatorPeaks()
         {
-            Type analyticsType = Type.GetType("Glai.Analytics.MemoryAnalytics, Glai.Analytics");
-            if (analyticsType == null)
-            {
-                return;
-            }
-
-            MethodInfo method = analyticsType.GetMethod("ResetPeaks", BindingFlags.Public | BindingFlags.Static);
-            method?.Invoke(null, null);
+            AnalyticsManager manager = ModuleManager.Instance.GetModule<AnalyticsManager>();
+            manager?.MemoryAnalytics.ResetPeaks();
         }
 
         private static string[] SplitNameParts(string displayName)

@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.LowLevel;
 using UnityEngine.PlayerLoop;
@@ -7,69 +9,6 @@ using UnityEngine.Scripting;
 
 namespace Glai.Module
 {
-    public readonly struct RuntimeModuleDefinition
-    {
-        public RuntimeModuleDefinition(Type moduleType, Func<ModuleBase> create)
-        {
-            ModuleType = moduleType ?? throw new ArgumentNullException(nameof(moduleType));
-            Create = create ?? throw new ArgumentNullException(nameof(create));
-        }
-
-        public Type ModuleType { get; }
-
-        public Func<ModuleBase> Create { get; }
-    }
-
-    public static class RuntimeModuleCatalog
-    {
-        private static readonly List<RuntimeModuleDefinition> definitions = new List<RuntimeModuleDefinition>();
-        private static readonly HashSet<Type> registeredTypes = new HashSet<Type>();
-
-        public static IReadOnlyList<RuntimeModuleDefinition> Definitions => definitions;
-
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void Reset()
-        {
-            definitions.Clear();
-            registeredTypes.Clear();
-        }
-
-        internal static void ResetForTests()
-        {
-            Reset();
-        }
-
-        public static void Register<T>() where T : ModuleBase, new()
-        {
-            Register(typeof(T), static () => new T());
-        }
-
-        public static void Register(Type moduleType, Func<ModuleBase> create)
-        {
-            if (moduleType == null)
-            {
-                throw new ArgumentNullException(nameof(moduleType));
-            }
-
-            if (create == null)
-            {
-                throw new ArgumentNullException(nameof(create));
-            }
-
-            if (!typeof(ModuleBase).IsAssignableFrom(moduleType))
-            {
-                throw new ArgumentException($"{moduleType.FullName} must inherit from {nameof(ModuleBase)}.", nameof(moduleType));
-            }
-
-            if (!registeredTypes.Add(moduleType))
-            {
-                return;
-            }
-
-            definitions.Add(new RuntimeModuleDefinition(moduleType, create));
-        }
-    }
-
     [Preserve]
     public class ModuleManager : MonoBehaviour
     {
@@ -89,12 +28,10 @@ namespace Glai.Module
                 return;
             }
 
-            Debug.developerConsoleVisible = true;
-            Debug.Log($"[ModuleManager] Creating ModuleManager on initialize.");
+            Global.Initialize();
 
             var gameObject = new GameObject("ModuleManager");
             gameObject.AddComponent<ModuleManager>();
-
             
             var defaultLoop = PlayerLoop.GetDefaultPlayerLoop();
 
@@ -129,6 +66,7 @@ namespace Glai.Module
                         {
                             FindSystem(typeof(EarlyUpdate.GpuTimestamp), defaultLoop),
                             FindSystem(typeof(EarlyUpdate.ExecuteMainThreadJobs), defaultLoop),
+                            FindSystem(typeof(EarlyUpdate.ScriptRunDelayedStartupFrame), defaultLoop),
                             FindSystem(typeof(EarlyUpdate.ClearIntermediateRenderers), defaultLoop),
                             FindSystem(typeof(EarlyUpdate.ClearLines), defaultLoop),
                             FindSystem(typeof(EarlyUpdate.PresentBeforeUpdate), defaultLoop),
@@ -232,36 +170,55 @@ namespace Glai.Module
             }
         }
 
-        private void RegisterModules()
+        internal static IEnumerable<Type> GetLoadableTypes(Assembly assembly)
         {
-            var definitions = RuntimeModuleCatalog.Definitions;
-
-            Debug.developerConsoleVisible = true;
-            Debug.Log($"[ModuleManager] Registering {definitions.Count} modules.");
-
-            for (int i = 0; i < definitions.Count; i++)
+            try
             {
-                var definition = definitions[i];
-                var module = definition.Create();
-
-                Modules.Add(definition.ModuleType, module);
-                module.Initialize();
-                RegisterModuleLifecycle(module, StartModules, TickModules, LateTickModules);
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                Debug.LogWarning($"[ModuleManager] Some types failed to load from {assembly.FullName}.");
+                return ex.Types.Where(type => type != null);
             }
         }
 
-        private void DisposeModules()
+        internal static IEnumerable<Type> GetRegisteredModuleTypes(IEnumerable<Type> types, bool includeTestAssemblies = false)
         {
-            foreach (var module in Modules.Values)
+            return types
+                .Where(type => IsRegisteredModuleType(type, includeTestAssemblies))
+                .OrderBy(type => type.GetCustomAttribute<ModuleRegisterAttribute>().Priority)
+                .ThenBy(type => type.FullName);
+        }
+
+        static bool IsRegisteredModuleType(Type type, bool includeTestAssemblies)
+        {
+            if (!typeof(ModuleBase).IsAssignableFrom(type) || type.IsAbstract || type.GetCustomAttribute<ModuleRegisterAttribute>() == null)
             {
-                module.Dispose();
+                return false;
             }
 
-            Modules.Clear();
-            StartModules.Clear();
-            TickModules.Clear();
-            LateTickModules.Clear();
-            _isInitialized = false;
+            return includeTestAssemblies || !type.Assembly.GetName().Name.Contains(".Tests.");
+        }
+
+        private void RegisterModules()
+        {
+            // Find all non-abstract classes that inherit from ModuleBase and have the ModuleRegisterAttribute, then create an instance and register them.
+            var types = GetRegisteredModuleTypes(AppDomain.CurrentDomain.GetAssemblies()
+                    .SelectMany(GetLoadableTypes))
+                .ToList();
+
+            foreach (var type in types)
+            {
+                var module = Activator.CreateInstance(type) as ModuleBase;
+                Modules[type] = module;
+                RegisterModuleLifecycle(module, StartModules, TickModules, LateTickModules);
+            }
+
+            foreach (var module in Modules.Values)
+            {
+                module.Initialize();
+            }
         }
 
         private void Awake()
@@ -282,15 +239,6 @@ namespace Glai.Module
             LateTickModules.Clear();
 
             RegisterModules();
-        }
-
-        private void OnDestroy()
-        {
-            if (Instance == this)
-            {
-                DisposeModules();
-                Instance = null;
-            }
         }
 
         void Start()
@@ -331,6 +279,26 @@ namespace Glai.Module
             {
                 LateTickModules[i].LateTick(Time.deltaTime);
             }
+        }
+
+        void OnDestroy()
+        {
+            if (Instance == this)
+            {
+                Instance = null;
+            }
+
+            foreach (var module in Modules.Values)
+            {
+                module.Dispose();
+            }
+
+            Modules.Clear();
+            StartModules.Clear();
+            TickModules.Clear();
+            LateTickModules.Clear();
+
+            Global.Dispose();
         }
 
         public T GetModule<T>() where T : ModuleBase

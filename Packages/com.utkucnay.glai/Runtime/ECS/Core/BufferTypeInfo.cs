@@ -3,7 +3,7 @@ using Glai.ECS;
 
 namespace Glai.ECS.Core
 {
-    public static class BufferTypeInfo<T> where T : unmanaged, IBufferComponent
+    internal static class BufferTypeInfo<T> where T : unmanaged, IBufferComponent
     {
         public const int HeaderSize = sizeof(int);
         public static int Capacity => BufferTypeMetadata<T>.Capacity;

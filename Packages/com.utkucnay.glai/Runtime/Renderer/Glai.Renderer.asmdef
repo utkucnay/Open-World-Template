@@ -1,0 +1,17 @@
+{
+    "name": "Glai.Renderer",
+    "rootNamespace": "Glai.Renderer",
+    "references": [
+        "GUID:aef9c3fa12088584198934a4b7cf059c",
+        "GUID:957832a6ae6af1b4cb9f2e35f8a328f3"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

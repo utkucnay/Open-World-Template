@@ -2,17 +2,9 @@ using System;
 using Glai.Allocator;
 using Glai.Collection;
 using Glai.Core;
-using Math = Glai.Mathematics.Math;
 
 namespace Glai.Tween.Core
 {
-    public struct TweenStateData
-    {
-        public PersistData tweenPersistData;
-        public ArenaData tweenSequenceArenaData;
-        public int tweenSequenceArenaCount;
-    }
-
     public class TweenState : MemoryState
     {
         public MemoryStateHandle tweenPersistHandle;
@@ -20,23 +12,45 @@ namespace Glai.Tween.Core
 
         public TweenState(TweenStateData data)
         {
+            data = ResolveData(data);
             tweenPersistHandle = AddAllocator(new Persist(new PersistData
             {
-                name = "TweenState",
-                capacityBytes = Math.MB(10),
-                maxHandles = 100
+                name = data.TweenPersistName,
+                capacityBytes = data.TweenPersistCapacityBytes.Bytes,
+                maxHandles = data.TweenPersistMaxHandles,
             }));
 
-            tweenSequenceArenaHandle = new FixedStack<MemoryStateHandle>(100, tweenPersistHandle, this);
-            for (int i = 0; i < 100; i++)
+            tweenSequenceArenaHandle = new FixedStack<MemoryStateHandle>(data.TweenSequenceArenaCount, tweenPersistHandle, this);
+            for (int i = 0; i < data.TweenSequenceArenaCount; i++)
             {
                 tweenSequenceArenaHandle.Push(AddAllocator(new Arena(new ArenaData
                 {
-                    name = $"TweenSequenceArena_{i}",
-                    capacityBytes = Math.KB(16),
-                    maxHandles = 100
+                    name = $"{data.TweenSequenceArenaName}_{i}",
+                    alignmentBytes = data.TweenSequenceArenaAlignmentBytes,
+                    capacityBytes = data.TweenSequenceArenaCapacityBytes.Bytes,
+                    maxHandles = data.TweenSequenceArenaMaxHandles,
                 })));
             }
+        }
+
+        private static TweenStateData ResolveData(TweenStateData data)
+        {
+            var defaults = TweenStateData.Default;
+            if (string.IsNullOrEmpty(data.TweenPersistName))
+                data.TweenPersistName = defaults.TweenPersistName;
+            if (data.TweenPersistCapacityBytes.Value <= 0)
+                data.TweenPersistCapacityBytes = defaults.TweenPersistCapacityBytes;
+            if (data.TweenPersistMaxHandles <= 0)
+                data.TweenPersistMaxHandles = defaults.TweenPersistMaxHandles;
+            if (string.IsNullOrEmpty(data.TweenSequenceArenaName))
+                data.TweenSequenceArenaName = defaults.TweenSequenceArenaName;
+            if (data.TweenSequenceArenaCapacityBytes.Value <= 0)
+                data.TweenSequenceArenaCapacityBytes = defaults.TweenSequenceArenaCapacityBytes;
+            if (data.TweenSequenceArenaMaxHandles <= 0)
+                data.TweenSequenceArenaMaxHandles = defaults.TweenSequenceArenaMaxHandles;
+            if (data.TweenSequenceArenaCount <= 0)
+                data.TweenSequenceArenaCount = defaults.TweenSequenceArenaCount;
+            return data;
         }
 
         public MemoryStateHandle PopArenaHandle()

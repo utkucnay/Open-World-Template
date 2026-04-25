@@ -2,6 +2,7 @@ using System;
 using Glai.ECS;
 using Glai.ECS.Core;
 using NUnit.Framework;
+using Unity.Burst;
 
 namespace Glai.ECS.Tests.EditMode
 {
@@ -28,39 +29,61 @@ namespace Glai.ECS.Tests.EditMode
         public int Value;
     }
 
-    // -------------------------------------------------------------------------
-    // System structs for RunNonBurst (non-nested so source gen can see them)
-    // -------------------------------------------------------------------------
-
-    [QueryJob(QueryExecution.MainThread), NonBurstQuery]
-    internal struct SumItemIdsSystem
+    [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
+    internal struct BufferScalarQuerySystem
     {
-        public int Total;
-        public void Execute(Buffer<Item> b1)
+        public void Execute(BufferRW<Item> items)
         {
-            for (int i = 0; i < b1.Length; i++)
-                Total += b1[i].Id;
+            items.TryAdd(new Item { Id = 7, Count = 1 });
         }
     }
 
-    [QueryJob(QueryExecution.MainThread), NonBurstQuery]
-    internal struct StoreItemCountInPositionSystem
+    [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
+    internal struct BufferReadOnlyScalarQuerySystem
     {
-        public void Execute(Buffer<Item> b1, Ref<Position> c1)
+        public void Execute(BufferR<Item> items, RefRW<Position> position)
         {
-            c1.Value.Value = b1.Length;
+            position.Value.Value = items.Length == 0 ? -1 : items[0].Id;
         }
     }
 
-    [QueryJob(QueryExecution.MainThread), NonBurstQuery]
-    internal struct SumBothBuffersSystem
+    [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
+    internal struct BufferSseEntityIdQuerySystem
     {
-        public int ItemTotal;
-        public int SkillTotal;
-        public void Execute(Buffer<Item> b1, Buffer<Skill> b2)
+        public void ExecuteSSE(EntityId4 entityIds, BufferRW4<Item> items)
         {
-            for (int i = 0; i < b1.Length; i++) ItemTotal  += b1[i].Id;
-            for (int i = 0; i < b2.Length; i++) SkillTotal += b2[i].SkillId;
+            for (int i = 0; i < EntityId4.Length; i++)
+                items[i].TryAdd(new Item { Id = entityIds[i], Count = i });
+        }
+    }
+
+    [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
+    internal struct BufferReadOnlySseQuerySystem
+    {
+        public void ExecuteSSE(BufferR4<Item> items, RefRW4<Position> positions)
+        {
+            for (int i = 0; i < BufferR4<Item>.Length; i++)
+                positions[i].Value = items[i].Length == 0 ? -1 : items[i][0].Id;
+        }
+    }
+
+    [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
+    internal struct BufferAvxEntityIdQuerySystem
+    {
+        public void ExecuteAVX(EntityId8 entityIds, BufferRW8<Item> items)
+        {
+            for (int i = 0; i < EntityId8.Length; i++)
+                items[i].TryAdd(new Item { Id = entityIds[i], Count = i });
+        }
+    }
+
+    [QueryJob(QueryExecution.ChunkParallel), BurstCompile]
+    internal struct BufferReadOnlyAvxQuerySystem
+    {
+        public void ExecuteAVX(BufferR8<Item> items, RefRW8<Position> positions)
+        {
+            for (int i = 0; i < BufferR8<Item>.Length; i++)
+                positions[i].Value = items[i].Length == 0 ? -1 : items[i][0].Id;
         }
     }
 
@@ -180,7 +203,7 @@ namespace Glai.ECS.Tests.EditMode
             int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
             var entity = manager.CreateEntity(arch);
 
-            var buf = manager.GetBuffer<Item>(entity);
+            var buf = manager.GetBufferRW<Item>(entity);
 
             Assert.AreEqual(0, buf.Length);
             Assert.AreEqual(8, buf.Capacity);
@@ -198,10 +221,10 @@ namespace Glai.ECS.Tests.EditMode
             int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
             var entity = manager.CreateEntity(arch);
 
-            manager.GetBuffer<Item>(entity).Add(new Item { Id = 7, Count = 3 });
-            manager.GetBuffer<Item>(entity).Add(new Item { Id = 12, Count = 1 });
+            manager.GetBufferRW<Item>(entity).Add(new Item { Id = 7, Count = 3 });
+            manager.GetBufferRW<Item>(entity).Add(new Item { Id = 12, Count = 1 });
 
-            var buf = manager.GetBuffer<Item>(entity);
+            var buf = manager.GetBufferRW<Item>(entity);
             Assert.AreEqual(2, buf.Length);
             Assert.AreEqual(7,  buf[0].Id);
             Assert.AreEqual(3,  buf[0].Count);
@@ -219,12 +242,12 @@ namespace Glai.ECS.Tests.EditMode
             int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
             var entity = manager.CreateEntity(arch);
 
-            var buf = manager.GetBuffer<Item>(entity);
+            var buf = manager.GetBufferRW<Item>(entity);
             for (int i = 0; i < buf.Capacity; i++)
                 buf.Add(new Item { Id = i });
 
             Assert.Throws<InvalidOperationException>(() =>
-                manager.GetBuffer<Item>(entity).Add(new Item { Id = 99 }));
+                manager.GetBufferRW<Item>(entity).Add(new Item { Id = 99 }));
 
             manager.Dispose();
         }
@@ -238,11 +261,11 @@ namespace Glai.ECS.Tests.EditMode
             int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
             var entity = manager.CreateEntity(arch);
 
-            var buf = manager.GetBuffer<Item>(entity);
+            var buf = manager.GetBufferRW<Item>(entity);
             for (int i = 0; i < buf.Capacity; i++)
                 buf.TryAdd(new Item { Id = i });
 
-            bool result = manager.GetBuffer<Item>(entity).TryAdd(new Item { Id = 99 });
+            bool result = manager.GetBufferRW<Item>(entity).TryAdd(new Item { Id = 99 });
             Assert.IsFalse(result);
             manager.Dispose();
         }
@@ -258,13 +281,13 @@ namespace Glai.ECS.Tests.EditMode
             int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
             var entity = manager.CreateEntity(arch);
 
-            manager.GetBuffer<Item>(entity).Add(new Item { Id = 1 });
-            manager.GetBuffer<Item>(entity).Add(new Item { Id = 2 });
-            manager.GetBuffer<Item>(entity).Add(new Item { Id = 3 });
+            manager.GetBufferRW<Item>(entity).Add(new Item { Id = 1 });
+            manager.GetBufferRW<Item>(entity).Add(new Item { Id = 2 });
+            manager.GetBufferRW<Item>(entity).Add(new Item { Id = 3 });
 
-            manager.GetBuffer<Item>(entity).RemoveAt(0); // removes Id=1, last (Id=3) swaps in
+            manager.GetBufferRW<Item>(entity).RemoveAt(0); // removes Id=1, last (Id=3) swaps in
 
-            var buf = manager.GetBuffer<Item>(entity);
+            var buf = manager.GetBufferRW<Item>(entity);
             Assert.AreEqual(2,  buf.Length);
             Assert.AreEqual(3,  buf[0].Id); // Id=3 swapped to index 0
             Assert.AreEqual(2,  buf[1].Id);
@@ -279,10 +302,10 @@ namespace Glai.ECS.Tests.EditMode
 
             int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
             var entity = manager.CreateEntity(arch);
-            manager.GetBuffer<Item>(entity).Add(new Item { Id = 1 });
+            manager.GetBufferRW<Item>(entity).Add(new Item { Id = 1 });
 
             Assert.Throws<ArgumentOutOfRangeException>(() =>
-                manager.GetBuffer<Item>(entity).RemoveAt(5));
+                manager.GetBufferRW<Item>(entity).RemoveAt(5));
 
             manager.Dispose();
         }
@@ -298,12 +321,12 @@ namespace Glai.ECS.Tests.EditMode
             int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
             var entity = manager.CreateEntity(arch);
 
-            var buf = manager.GetBuffer<Item>(entity);
+            var buf = manager.GetBufferRW<Item>(entity);
             buf.Add(new Item { Id = 1 });
             buf.Add(new Item { Id = 2 });
-            manager.GetBuffer<Item>(entity).Clear();
+            manager.GetBufferRW<Item>(entity).Clear();
 
-            Assert.AreEqual(0, manager.GetBuffer<Item>(entity).Length);
+            Assert.AreEqual(0, manager.GetBufferRW<Item>(entity).Length);
             manager.Dispose();
         }
 
@@ -320,7 +343,7 @@ namespace Glai.ECS.Tests.EditMode
 
             Assert.Throws<ArgumentOutOfRangeException>(() =>
             {
-                var buf = manager.GetBuffer<Item>(entity);
+                var buf = manager.GetBufferRW<Item>(entity);
                 var _ = buf[0];
             });
 
@@ -339,14 +362,182 @@ namespace Glai.ECS.Tests.EditMode
             var e1 = manager.CreateEntity(arch);
             var e2 = manager.CreateEntity(arch);
 
-            manager.GetBuffer<Item>(e1).Add(new Item { Id = 10 });
-            manager.GetBuffer<Item>(e2).Add(new Item { Id = 20 });
-            manager.GetBuffer<Item>(e2).Add(new Item { Id = 21 });
+            manager.GetBufferRW<Item>(e1).Add(new Item { Id = 10 });
+            manager.GetBufferRW<Item>(e2).Add(new Item { Id = 20 });
+            manager.GetBufferRW<Item>(e2).Add(new Item { Id = 21 });
 
-            Assert.AreEqual(1,  manager.GetBuffer<Item>(e1).Length);
-            Assert.AreEqual(10, manager.GetBuffer<Item>(e1)[0].Id);
-            Assert.AreEqual(2,  manager.GetBuffer<Item>(e2).Length);
-            Assert.AreEqual(20, manager.GetBuffer<Item>(e2)[0].Id);
+            Assert.AreEqual(1,  manager.GetBufferRW<Item>(e1).Length);
+            Assert.AreEqual(10, manager.GetBufferRW<Item>(e1)[0].Id);
+            Assert.AreEqual(2,  manager.GetBufferRW<Item>(e2).Length);
+            Assert.AreEqual(20, manager.GetBufferRW<Item>(e2)[0].Id);
+            manager.Dispose();
+        }
+
+        // -- Query jobs --------------------------------------------------------
+
+        [Test]
+        public void EntityManager_Run_WithBufferParameter_AppendsToBuffers()
+        {
+            var manager = new EntityManager();
+            manager.Initialize();
+
+            int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
+            var first = manager.CreateEntity(arch);
+            var second = manager.CreateEntity(arch);
+
+            var query = manager.Query().WithAllBuffer<Item>();
+            var system = new BufferScalarQuerySystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
+
+            Assert.AreEqual(1, manager.GetBufferRW<Item>(first).Length);
+            Assert.AreEqual(7, manager.GetBufferRW<Item>(first)[0].Id);
+            Assert.AreEqual(1, manager.GetBufferRW<Item>(second).Length);
+            Assert.AreEqual(7, manager.GetBufferRW<Item>(second)[0].Id);
+
+            handle.Dispose();
+            manager.Dispose();
+        }
+
+        [Test]
+        public void EntityManager_Run_WithReadOnlyBufferParameter_ReadsBuffers()
+        {
+            var manager = new EntityManager();
+            manager.Initialize();
+
+            int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>(), ArchetypeType.Component<Position>() });
+            var first = manager.CreateEntity(arch);
+            var second = manager.CreateEntity(arch);
+            manager.GetBufferRW<Item>(first).Add(new Item { Id = 10 });
+            manager.GetBufferRW<Item>(second).Add(new Item { Id = 20 });
+
+            var query = manager.Query().WithAll<Position>().WithAllBuffer<Item>();
+            var system = new BufferReadOnlyScalarQuerySystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
+
+            Assert.AreEqual(10, manager.GetComponent<Position>(first).Value);
+            Assert.AreEqual(20, manager.GetComponent<Position>(second).Value);
+
+            handle.Dispose();
+            manager.Dispose();
+        }
+
+        [Test]
+        public void EntityManager_Run_WithSseBufferAndEntityIds_UsesPaddedTailBatch()
+        {
+            if (!Unity.Burst.Intrinsics.X86.Sse4_2.IsSse42Supported)
+                Assert.Ignore("SSE4.2 is not supported on this CPU.");
+
+            var manager = new EntityManager();
+            manager.Initialize();
+
+            int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
+            var entities = new Entity[7];
+            for (int i = 0; i < entities.Length; i++)
+                entities[i] = manager.CreateEntity(arch);
+
+            var query = manager.Query().WithAllBuffer<Item>();
+            var system = new BufferSseEntityIdQuerySystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                var buffer = manager.GetBufferRW<Item>(entities[i]);
+                Assert.AreEqual(1, buffer.Length);
+                Assert.AreEqual(entities[i].Id, buffer[0].Id);
+            }
+
+            handle.Dispose();
+            manager.Dispose();
+        }
+
+        [Test]
+        public void EntityManager_Run_WithSseReadOnlyBuffer_ReadsPaddedTailBatch()
+        {
+            if (!Unity.Burst.Intrinsics.X86.Sse4_2.IsSse42Supported)
+                Assert.Ignore("SSE4.2 is not supported on this CPU.");
+
+            var manager = new EntityManager();
+            manager.Initialize();
+
+            int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>(), ArchetypeType.Component<Position>() });
+            var entities = new Entity[7];
+            for (int i = 0; i < entities.Length; i++)
+            {
+                entities[i] = manager.CreateEntity(arch);
+                manager.GetBufferRW<Item>(entities[i]).Add(new Item { Id = 100 + i });
+            }
+
+            var query = manager.Query().WithAll<Position>().WithAllBuffer<Item>();
+            var system = new BufferReadOnlySseQuerySystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
+
+            for (int i = 0; i < entities.Length; i++)
+                Assert.AreEqual(100 + i, manager.GetComponent<Position>(entities[i]).Value);
+
+            handle.Dispose();
+            manager.Dispose();
+        }
+
+        [Test]
+        public void EntityManager_Run_WithAvxBufferAndEntityIds_UsesPaddedTailBatch()
+        {
+            if (!Unity.Burst.Intrinsics.X86.Avx2.IsAvx2Supported)
+                Assert.Ignore("AVX2 is not supported on this CPU.");
+
+            var manager = new EntityManager();
+            manager.Initialize();
+
+            int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
+            var entities = new Entity[11];
+            for (int i = 0; i < entities.Length; i++)
+                entities[i] = manager.CreateEntity(arch);
+
+            var query = manager.Query().WithAllBuffer<Item>();
+            var system = new BufferAvxEntityIdQuerySystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
+
+            for (int i = 0; i < entities.Length; i++)
+            {
+                var buffer = manager.GetBufferRW<Item>(entities[i]);
+                Assert.AreEqual(1, buffer.Length);
+                Assert.AreEqual(entities[i].Id, buffer[0].Id);
+            }
+
+            handle.Dispose();
+            manager.Dispose();
+        }
+
+        [Test]
+        public void EntityManager_Run_WithAvxReadOnlyBuffer_ReadsPaddedTailBatch()
+        {
+            if (!Unity.Burst.Intrinsics.X86.Avx2.IsAvx2Supported)
+                Assert.Ignore("AVX2 is not supported on this CPU.");
+
+            var manager = new EntityManager();
+            manager.Initialize();
+
+            int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>(), ArchetypeType.Component<Position>() });
+            var entities = new Entity[11];
+            for (int i = 0; i < entities.Length; i++)
+            {
+                entities[i] = manager.CreateEntity(arch);
+                manager.GetBufferRW<Item>(entities[i]).Add(new Item { Id = 200 + i });
+            }
+
+            var query = manager.Query().WithAll<Position>().WithAllBuffer<Item>();
+            var system = new BufferReadOnlyAvxQuerySystem();
+            var handle = manager.Run(query, ref system);
+            handle.Complete();
+
+            for (int i = 0; i < entities.Length; i++)
+                Assert.AreEqual(200 + i, manager.GetComponent<Position>(entities[i]).Value);
+
+            handle.Dispose();
             manager.Dispose();
         }
 
@@ -360,13 +551,13 @@ namespace Glai.ECS.Tests.EditMode
 
             int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
             var entity = manager.CreateEntity(arch);
-            manager.GetBuffer<Item>(entity).Add(new Item { Id = 5 });
+            manager.GetBufferRW<Item>(entity).Add(new Item { Id = 5 });
 
             manager.DestroyEntity(entity);
 
             Assert.IsFalse(manager.IsValid(entity));
             Assert.Throws<InvalidOperationException>(() =>
-                manager.GetBuffer<Item>(entity));
+                manager.GetBufferRW<Item>(entity));
             manager.Dispose();
         }
 
@@ -378,13 +569,13 @@ namespace Glai.ECS.Tests.EditMode
 
             int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
             var entity = manager.CreateEntity(arch);
-            manager.GetBuffer<Item>(entity).Add(new Item { Id = 5 });
+            manager.GetBufferRW<Item>(entity).Add(new Item { Id = 5 });
 
             manager.DestroyEntity(entity);
 
             var recycled = manager.CreateEntity(arch);
 
-            Assert.AreEqual(0, manager.GetBuffer<Item>(recycled).Length);
+            Assert.AreEqual(0, manager.GetBufferRW<Item>(recycled).Length);
             manager.Dispose();
         }
 
@@ -398,100 +589,18 @@ namespace Glai.ECS.Tests.EditMode
             var first = manager.CreateEntity(arch);
             var second = manager.CreateEntity(arch);
 
-            manager.GetBuffer<Item>(first).Add(new Item { Id = 1 });
-            manager.GetBuffer<Item>(second).Add(new Item { Id = 2 });
-            manager.GetBuffer<Item>(second).Add(new Item { Id = 3 });
+            manager.GetBufferRW<Item>(first).Add(new Item { Id = 1 });
+            manager.GetBufferRW<Item>(second).Add(new Item { Id = 2 });
+            manager.GetBufferRW<Item>(second).Add(new Item { Id = 3 });
 
             manager.DestroyEntity(first);
 
             var recycled = manager.CreateEntity(arch);
 
-            Assert.AreEqual(0, manager.GetBuffer<Item>(recycled).Length);
-            Assert.AreEqual(2, manager.GetBuffer<Item>(second).Length);
+            Assert.AreEqual(0, manager.GetBufferRW<Item>(recycled).Length);
+            Assert.AreEqual(2, manager.GetBufferRW<Item>(second).Length);
             manager.Dispose();
         }
 
-        // -- RunNonBurst buffer jobs ------------------------------------------
-
-        [Test]
-        public void EntityManager_RunNonBurst_Buffer_SingleBuffer_SumsItems()
-        {
-            var manager = new EntityManager();
-            manager.Initialize();
-
-            int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
-            var e1 = manager.CreateEntity(arch);
-            var e2 = manager.CreateEntity(arch);
-
-            manager.GetBuffer<Item>(e1).Add(new Item { Id = 3 });
-            manager.GetBuffer<Item>(e1).Add(new Item { Id = 4 });
-            manager.GetBuffer<Item>(e2).Add(new Item { Id = 10 });
-
-            var query = manager.Query();
-            var system = new SumItemIdsSystem();
-            var handle = manager.RunNonBurst(query, ref system);
-            handle.Complete();
-
-            Assert.AreEqual(17, system.Total);
-
-            handle.Dispose();
-            manager.Dispose();
-        }
-
-        [Test]
-        public void EntityManager_RunNonBurst_BufferAndComponent_OnlyMatchingArchetype()
-        {
-            var manager = new EntityManager();
-            manager.Initialize();
-
-            int archBoth = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Component<Position>(), ArchetypeType.Buffer<Item>() });
-            int archBufOnly = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>() });
-
-            var matching = manager.CreateEntity(archBoth);
-            var nonMatching = manager.CreateEntity(archBufOnly);
-
-            manager.GetBuffer<Item>(matching).Add(new Item { Id = 1 });
-            manager.GetBuffer<Item>(matching).Add(new Item { Id = 1 });
-            manager.GetBuffer<Item>(nonMatching).Add(new Item { Id = 1 });
-
-            manager.GetComponentRef<Position>(matching).Value = 0;
-
-            var query = manager.Query().WithAll<Position>();
-            var system = new StoreItemCountInPositionSystem();
-            var handle = manager.RunNonBurst(query, ref system);
-            handle.Complete();
-
-            Assert.AreEqual(2, manager.GetComponent<Position>(matching).Value);
-
-            handle.Dispose();
-            manager.Dispose();
-        }
-
-        // -- RunNonBurst two buffers ------------------------------------------
-
-        [Test]
-        public void EntityManager_RunNonBurst_TwoBuffers_SumsBoth()
-        {
-            var manager = new EntityManager();
-            manager.Initialize();
-
-            int arch = manager.CreateArchetype(stackalloc ArchetypeType[] { ArchetypeType.Buffer<Item>(), ArchetypeType.Buffer<Skill>() });
-
-            var entity = manager.CreateEntity(arch);
-            manager.GetBuffer<Item>(entity).Add(new Item  { Id = 5 });
-            manager.GetBuffer<Item>(entity).Add(new Item  { Id = 6 });
-            manager.GetBuffer<Skill>(entity).Add(new Skill { SkillId = 100 });
-
-            var query = manager.Query();
-            var system = new SumBothBuffersSystem();
-            var handle = manager.RunNonBurst(query, ref system);
-            handle.Complete();
-
-            Assert.AreEqual(11,  system.ItemTotal);
-            Assert.AreEqual(100, system.SkillTotal);
-
-            handle.Dispose();
-            manager.Dispose();
-        }
     }
 }

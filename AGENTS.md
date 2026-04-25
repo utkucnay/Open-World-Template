@@ -1,34 +1,37 @@
 # AGENTS.md
 
-## Project Shape
-- This is a Unity project pinned to `6000.4.2f1` in `ProjectSettings/ProjectVersion.txt`.
-- The real source of truth is `Packages/com.utkucnay.glai/`. Root `*.csproj` files and `Glai-dev.slnx` are Unity-generated mirrors of the package asmdefs.
-- Package boundaries are defined by asmdefs under `Packages/com.utkucnay.glai/Runtime/*`, `Editor/*`, and `Tests/*`. Edit asmdefs/package code, not generated solution metadata.
-- The package README is partly stale: it still mentions authoring under `Assets/` and `build-package.cmd`, but this repo currently stores runtime/editor/tests directly under `Packages/com.utkucnay.glai` and has no packaging scripts at repo root.
+## Source Of Truth
+- Unity is pinned to `6000.4.2f1` in `ProjectSettings/ProjectVersion.txt`.
+- Edit package code under `Packages/com.utkucnay.glai/`; root `*.csproj` files and `Glai-dev.slnx` are Unity-generated mirrors and can contain stale assemblies.
+- `Packages/com.utkucnay.glai/README.md` is stale: it describes an old `Assets/` authoring flow and `build-package.cmd`, but this repo has no package build scripts and runtime/editor/test code is under the embedded package.
 
-## Runtime And Editor Entry Points
-- `Packages/com.utkucnay.glai/Runtime/Module/ModuleManager.cs` bootstraps itself with `[RuntimeInitializeOnLoadMethod(BeforeSceneLoad)]` and rewrites the player loop. Changes there affect app startup globally.
-- `Packages/com.utkucnay.glai/Editor/Core/GlaiSetupWindow.cs` is `[InitializeOnLoad]` and auto-prompts on first non-batch editor open. It can rewrite `Packages/manifest.json` and `Packages/packages-lock.json`.
-- The setup window is also exposed as `Tools/Glai/Setup`. Other Glai editor tools live under `Tools/Glai/*`.
+## Repo Shape
+- `Packages/com.utkucnay.glai/` is the package (`package.json` name `com.utkucnay.glai`); `Packages/manifest.json` marks it testable.
+- `Assets/` is the host Unity project and copied starter/sample content, not the package source.
+- Package boundaries are the asmdefs under `Packages/com.utkucnay.glai/Runtime/*`, `Editor/*`, and `Tests/*`.
+- `ProjectSettings/EditorBuildSettings.asset` currently builds `Assets/StarterContent/Scenes/Temp.unity` and `Assets/Scenes/SampleScene.unity`.
+- `Packages/com.utkucnay.glai/Samples~/StarterContent/` is distributable sample content; `Assets/StarterContent/` is the host-project copy.
 
-## ECS Source Generator
-- `Packages/com.utkucnay.glai/Editor/Analyzers/Glai.ECS.SourceGen.dll` is checked in and actively referenced by Unity compilation.
-- ECS types such as `EntityManager`, `QueryBuilder`, `Archetype`, and `ECSAPI` are `partial`; do not assume the visible file contains the full implementation.
-- There are no committed `*.gen.cs` outputs in the package tree. If ECS behavior looks incomplete, account for analyzer-generated members before changing public shapes.
+## Runtime And Editor Wiring
+- `Packages/com.utkucnay.glai/Runtime/Module/ModuleManager.cs` runs on `BeforeSceneLoad`, creates the `ModuleManager` object, and replaces the Unity player loop.
+- Runtime modules are discovered by reflection as non-abstract `ModuleBase` types with `[ModuleRegister]`; verified registrations include `EntityManager`, `AnalyticsManager`, and `GameplayManager`.
+- `Packages/com.utkucnay.glai/Editor/SetupWindow/GlaiSetupWindow.cs` is `[InitializeOnLoad]`, auto-opens on first non-batch editor launch, and can rewrite `Packages/manifest.json` and `Packages/packages-lock.json`.
+- Verified Glai editor menus are `Tools/Glai/Setup`, `Tools/Glai/Memory Analytics`, and `Tools/Glai/Custom Hierarchy`.
 
-## Tests And Verification
-- Current test coverage is EditMode-only under `Packages/com.utkucnay.glai/Tests/**/EditMode`. No package PlayMode test folders are present.
-- Full EditMode run from CLI:
+## ECS Generator
+- Unity consumes the checked-in analyzer DLL at `Packages/com.utkucnay.glai/Editor/Analyzers/Glai.ECS.SourceGen.dll`.
+- Editable generator source is `SourceGenerators/Glai.ECS.SourceGen.csproj` plus `SourceGenerators/*.cs`; rebuild with `dotnet build SourceGenerators/Glai.ECS.SourceGen.csproj`, then copy the new DLL/PDB into `Packages/com.utkucnay.glai/Editor/Analyzers/`.
+- ECS APIs rely on generated members: `EntityManager`, `QueryBuilder`, `Archetype`, and `ECSAPI` are `partial`, and there are no committed `*.gen.cs` files.
+
+## Verification
+- Package tests are EditMode-only under `Packages/com.utkucnay.glai/Tests/**/EditMode`; no package PlayMode test folders are present.
+- Full EditMode run:
   ```powershell
-  "<UnityEditorPath>\Unity.exe" -batchmode -projectPath . -runTests -testPlatform EditMode -testResults Logs/editmode-tests.xml -logFile Logs/editmode-tests.log -quit
+  "<UnityEditorPath>\Unity.exe" -batchmode -projectPath . -runTests -testPlatform EditMode -testResults Logs/editmode-tests.xml -logFile Logs/editmode-tests.log
   ```
-- Single test assembly run:
+- Focused assembly run:
   ```powershell
-  "<UnityEditorPath>\Unity.exe" -batchmode -projectPath . -runTests -testPlatform EditMode -assemblyNames Glai.ECS.Tests.EditMode -testResults Logs/ecs-tests.xml -logFile Logs/ecs-tests.log -quit
+  "<UnityEditorPath>\Unity.exe" -batchmode -projectPath . -runTests -testPlatform EditMode -assemblyNames Glai.ECS.Tests.EditMode -testResults Logs/ecs-tests.xml -logFile Logs/ecs-tests.log
   ```
-- Use assembly names from the test asmdefs/csproj names, e.g. `Glai.Core.Tests.EditMode`, `Glai.Gameplay.Tests.EditMode`, `Glai.Tween.Core.Tests.EditMode`.
-- Batchmode matters here: the Glai setup bootstrap skips its first-open prompt when `Application.isBatchMode` is true.
-
-## Sample / Host Project Notes
-- `ProjectSettings/EditorBuildSettings.asset` currently includes `Assets/Scenes/SampleScene.unity` and `Assets/StarterContent/Scenes/Temp.unity`.
-- The embedded package also ships sample content under `Packages/com.utkucnay.glai/Samples~/StarterContent/`. Be clear whether a change belongs to the host project under `Assets/` or the distributable package/sample under `Packages/com.utkucnay.glai`.
+- Use package test asmdef names for `-assemblyNames`, for example `Glai.Core.Tests.EditMode`, `Glai.Gameplay.Tests.EditMode`, or `Glai.Analytics.Editor.Tests.EditMode`.
+- Keep Unity CLI test runs in `-batchmode`, but omit `-quit`; adding `-quit` currently errors after tests. The setup bootstrap skips its first-open prompt only in batch mode.

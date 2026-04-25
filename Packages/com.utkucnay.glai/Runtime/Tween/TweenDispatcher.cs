@@ -84,13 +84,14 @@ namespace Glai.Tween
 
         public TweenDispatcher(
             TweenType tweenType, 
-            Func<T, T, float, T> lerpFunction)
+            Func<T, T, float, T> lerpFunction,
+            int capacity = 256)
         {
             guid = Guid.NewGuid();
             transformMap = new Dictionary<EntityId, Transform>();
-            tweens = new FixedList<Tween<T>>(256, ITweenManager.Instance.TweenState.tweenPersistHandle, ITweenManager.Instance.TweenState);
-            tweenHandles = new FixedArray<TweenHandle>(256, ITweenManager.Instance.TweenState.tweenPersistHandle, ITweenManager.Instance.TweenState);
-            freeHandleIndices = new FixedList<int>(256, ITweenManager.Instance.TweenState.tweenPersistHandle, ITweenManager.Instance.TweenState);
+            tweens = new FixedList<Tween<T>>(capacity, ITweenManager.Instance.TweenState.tweenPersistHandle, ITweenManager.Instance.TweenState);
+            tweenHandles = new FixedArray<TweenHandle>(capacity, ITweenManager.Instance.TweenState.tweenPersistHandle, ITweenManager.Instance.TweenState);
+            freeHandleIndices = new FixedList<int>(capacity, ITweenManager.Instance.TweenState.tweenPersistHandle, ITweenManager.Instance.TweenState);
             this.lerpFunction = lerpFunction;
             this.tweenType = tweenType;
         }

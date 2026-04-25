@@ -11,17 +11,12 @@ namespace Glai.Gameplay
 {
     public unsafe class MeshRendererSystem : System
     {
-        const int k_CubesPerCluster = 1024 * 3;
-
-        static readonly int s_PackedTransformBufferId = Shader.PropertyToID("_PackedTransformBuffer");
-        static readonly int s_ClusterSizeId = Shader.PropertyToID("_ClusterSize");
         static readonly ProfilerMarker s_TickMarker    = new ProfilerMarker(ProfilerCategory.Scripts, "MeshRendererSystem.Tick");
         static readonly ProfilerMarker s_CopyMarker    = new ProfilerMarker(ProfilerCategory.Scripts, "MeshRendererSystem.CopyTransforms");
         static readonly ProfilerMarker s_UploadMarker  = new ProfilerMarker(ProfilerCategory.Scripts, "MeshRendererSystem.UploadTransforms");
         static readonly ProfilerMarker s_DrawMarker    = new ProfilerMarker(ProfilerCategory.Scripts, "MeshRendererSystem.Draw");
 
-        static readonly Bounds s_WorldBounds = new Bounds(Vector3.zero, Vector3.one * 1_000_000f);
-
+        MeshRendererSystemConfig config;
         Mesh mesh;
         Mesh sourceMesh;
         Material material;
@@ -37,37 +32,56 @@ namespace Glai.Gameplay
         uint startIndex;
         uint baseVertexIndex;
         int capacity;
+        int packedTransformBufferId;
+        int clusterSizeId;
+        int boundsUpdateFrame;
+        Bounds meshBounds;
+
+        public MeshRendererSystem() : this(MeshRendererSystemConfig.Default)
+        {
+        }
+
+        public MeshRendererSystem(MeshRendererSystemConfig config)
+        {
+            this.config = config;
+        }
 
         public override void Start()
         {
-            sourceMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+            packedTransformBufferId = Shader.PropertyToID(config.PackedTransformBufferProperty);
+            clusterSizeId = Shader.PropertyToID(config.ClusterSizeProperty);
+
+            sourceMesh = Resources.GetBuiltinResource<Mesh>(config.MeshResourcePath);
             if (sourceMesh == null)
             {
-                Debug.LogError("Builtin mesh 'Cube.fbx' not found.");
+                Debug.LogError($"Builtin mesh '{config.MeshResourcePath}' not found.");
                 return;
             }
 
-            mesh = BuildClusterMesh(sourceMesh, k_CubesPerCluster);
+            mesh = BuildClusterMesh(sourceMesh, config.CubesPerCluster);
+            meshBounds = sourceMesh.bounds;
 
-            material = Resources.Load<Material>("Material/IndirectDefault");
+            material = Resources.Load<Material>(config.MaterialResourcePath);
             if (material == null)
             {
-                Debug.LogError("Material 'Material/IndirectDefault' not found.");
+                Debug.LogError($"Material '{config.MaterialResourcePath}' not found.");
                 return;
             }
+
+            material.EnableKeyword(config.YAxisRotationKeyword);
 
             propertyBlock = new MaterialPropertyBlock();
 
-            EnsureCapacity(1);
-            propertyBlock.SetBuffer(s_PackedTransformBufferId, transformBuffer);
-            propertyBlock.SetInteger(s_ClusterSizeId, k_CubesPerCluster);
+            EnsureCapacity(config.InitialCapacity);
+            propertyBlock.SetBuffer(packedTransformBufferId, transformBuffer);
+            propertyBlock.SetInteger(clusterSizeId, config.CubesPerCluster);
 
             renderParams = new RenderParams(material)
             {
-                worldBounds       = s_WorldBounds,
+                worldBounds       = new Bounds(Vector3.zero, Vector3.one * config.WorldBoundsSize),
                 matProps          = propertyBlock,
-                shadowCastingMode = ShadowCastingMode.On,
-                receiveShadows    = true,
+                shadowCastingMode = config.CastShadows ? ShadowCastingMode.On : ShadowCastingMode.Off,
+                receiveShadows    = config.ReceiveShadows,
             };
 
             argsBuffer = new GraphicsBuffer(
@@ -101,13 +115,14 @@ namespace Glai.Gameplay
                 return;
             }
 
-            int clusterCount = GetClusterCount(count, k_CubesPerCluster);
-            int paddedCount = clusterCount * k_CubesPerCluster;
+            int clusterCount = GetClusterCount(count, config.CubesPerCluster);
+            int paddedCount = clusterCount * config.CubesPerCluster;
 
             EnsureCapacity(paddedCount);
+            bool updateBounds = ShouldUpdateBounds();
 
             using (s_CopyMarker.Auto())
-                CopyTransforms(entityManager, paddedCount);
+                CopyTransforms(entityManager, paddedCount, updateBounds);
 
             using (s_UploadMarker.Auto())
             {
@@ -172,7 +187,7 @@ namespace Glai.Gameplay
             uploadBuffer    = new NativeArray<PackedTransformComponent>(next, Unity.Collections.Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             transformBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, next, UnsafeUtility.SizeOf<PackedTransformComponent>());
 
-            propertyBlock?.SetBuffer(s_PackedTransformBufferId, transformBuffer);
+            propertyBlock?.SetBuffer(packedTransformBufferId, transformBuffer);
             capacity = next;
         }
 
@@ -181,11 +196,21 @@ namespace Glai.Gameplay
             return Mathf.CeilToInt(instanceCount / (float)clusterSize);
         }
 
-        void CopyTransforms(EntityManager entityManager, int paddedCount)
+        bool ShouldUpdateBounds()
+        {
+            if (config.BoundsUpdateIntervalFrames <= 0)
+                return false;
+
+            return boundsUpdateFrame++ % config.BoundsUpdateIntervalFrames == 0;
+        }
+
+        void CopyTransforms(EntityManager entityManager, int paddedCount, bool updateBounds)
         {
             int typeId  = Glai.Core.TypeId<PackedTransformComponent>.Id;
             var dst     = (PackedTransformComponent*)NativeArrayUnsafeUtility.GetUnsafePtr(uploadBuffer);
             int written = 0;
+            float3 min = new float3(float.MaxValue);
+            float3 max = new float3(float.MinValue);
 
             for (int a = 0; a < entityManager.ArchetypeCount; a++)
             {
@@ -206,16 +231,40 @@ namespace Glai.Gameplay
 
                     var src = (PackedTransformComponent*)chunk.GetComponentPtr(si);
                     UnsafeUtility.MemCpy(dst + written, src, n * sizeof(PackedTransformComponent));
+
+                    if (updateBounds)
+                    {
+                        for (int i = 0; i < n; i++)
+                        {
+                            float3 position = src[i].position;
+                            min = math.min(min, position);
+                            max = math.max(max, position);
+                        }
+                    }
+
                     written += n;
                 }
             }
 
+            if (updateBounds && written > 0)
+                renderParams.worldBounds = CalculateWorldBounds(min, max, meshBounds);
+
             PackedTransformComponent dummy = default;
-            dummy.position = new float3(0f, -100000f, 0f);
+            dummy.position = new float3(0f, config.DummyHiddenY, 0f);
             dummy.rotation = quaternion.identity;
 
             for (int i = written; i < paddedCount; i++)
                 uploadBuffer[i] = dummy;
+        }
+
+        internal static Bounds CalculateWorldBounds(float3 minPosition, float3 maxPosition, Bounds sourceBounds)
+        {
+            Vector3 min = minPosition + (float3)sourceBounds.min;
+            Vector3 max = maxPosition + (float3)sourceBounds.max;
+
+            var bounds = new Bounds();
+            bounds.SetMinMax(min, max);
+            return bounds;
         }
 
         static Mesh BuildClusterMesh(Mesh cubeMesh, int cubesPerCluster)

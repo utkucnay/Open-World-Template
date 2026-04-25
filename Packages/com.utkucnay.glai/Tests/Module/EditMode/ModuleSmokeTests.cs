@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Glai.Module;
 using NUnit.Framework;
 using UnityEngine;
@@ -14,7 +15,8 @@ namespace Glai.Module.Tests.EditMode
             }
         }
 
-        private sealed class RegisteredLifecycleModule : ModuleBase, IStart, ITick, ILateTick
+        [ModuleRegister(priority: -10)]
+        public sealed class RegisteredLifecycleModule : ModuleBase, IStart, ITick, ILateTick
         {
             public bool Initialized { get; private set; }
 
@@ -36,16 +38,25 @@ namespace Glai.Module.Tests.EditMode
             }
         }
 
+        [ModuleRegister(priority: -20)]
+        public sealed class EarlyRegisteredModule : ModuleBase
+        {
+            public override void Initialize()
+            {
+            }
+        }
+
+        [ModuleRegister(priority: -20)]
+        public sealed class SamePriorityRegisteredModule : ModuleBase
+        {
+            public override void Initialize()
+            {
+            }
+        }
+
         [SetUp]
         public void SetUp()
         {
-            DisableLogAndWarning();
-            RuntimeModuleCatalog.ResetForTests();
-
-            if (ModuleManager.Instance != null)
-            {
-                UnityEngine.Object.DestroyImmediate(ModuleManager.Instance.gameObject);
-            }
         }
 
         [TearDown]
@@ -56,8 +67,19 @@ namespace Glai.Module.Tests.EditMode
                 UnityEngine.Object.DestroyImmediate(ModuleManager.Instance.gameObject);
             }
 
-            RuntimeModuleCatalog.ResetForTests();
             ResetLoggerChannels();
+        }
+
+        private static ModuleManager CreateManager(string name)
+        {
+            if (ModuleManager.Instance != null)
+            {
+                UnityEngine.Object.DestroyImmediate(ModuleManager.Instance.gameObject);
+            }
+
+            DisableLogAndWarning();
+            var go = new GameObject(name);
+            return go.AddComponent<ModuleManager>();
         }
 
         private static void DisableLogAndWarning()
@@ -74,8 +96,7 @@ namespace Glai.Module.Tests.EditMode
         [Test]
         public void ModuleManager_Awake_InitializesModuleCollections()
         {
-            var go = new GameObject("ModuleManager_Test");
-            var manager = go.AddComponent<ModuleManager>();
+            var manager = CreateManager("ModuleManager_Test");
 
             Assert.IsNotNull(manager.Modules);
             Assert.IsNotNull(manager.StartModules);
@@ -85,48 +106,55 @@ namespace Glai.Module.Tests.EditMode
         [Test]
         public void ModuleCatalog_Register_AddsModuleDefinitionOnce()
         {
-            RuntimeModuleCatalog.Register<RegisteredLifecycleModule>();
-            RuntimeModuleCatalog.Register<RegisteredLifecycleModule>();
+            var sortedTypes = ModuleManager.GetRegisteredModuleTypes(new[]
+            {
+                typeof(UnregisteredTestModule),
+                typeof(RegisteredLifecycleModule),
+                typeof(EarlyRegisteredModule),
+                typeof(SamePriorityRegisteredModule),
+            }, includeTestAssemblies: true).ToList();
 
-            Assert.That(RuntimeModuleCatalog.Definitions.Count, Is.EqualTo(1));
-            Assert.That(RuntimeModuleCatalog.Definitions[0].ModuleType, Is.EqualTo(typeof(RegisteredLifecycleModule)));
+            Assert.That(sortedTypes, Has.Count.EqualTo(3));
+            Assert.IsFalse(sortedTypes.Contains(typeof(UnregisteredTestModule)));
         }
 
         [Test]
-        public void ModuleManager_GetModule_ReturnsRegisteredModule()
+        public void ModuleManager_IgnoresRegisteredTestModules()
         {
-            RuntimeModuleCatalog.Register<RegisteredLifecycleModule>();
+            var manager = CreateManager("ModuleManager_GetModule_Test");
 
-            var go = new GameObject("ModuleManager_GetRegistered_Test");
-            var manager = go.AddComponent<ModuleManager>();
-
-            Assert.That(manager.GetModule<RegisteredLifecycleModule>(), Is.Not.Null);
+            Assert.Throws<InvalidOperationException>(() => manager.GetModule<RegisteredLifecycleModule>());
         }
 
         [Test]
-        public void ModuleManager_LifecycleLists_IncludeRegisteredModule()
+        public void ModuleManager_LifecycleLists_IgnoreRegisteredTestModules()
         {
-            RuntimeModuleCatalog.Register<RegisteredLifecycleModule>();
+            var manager = CreateManager("ModuleManager_Lifecycle_Test");
 
-            var go = new GameObject("ModuleManager_Lifecycle_Test");
-            var manager = go.AddComponent<ModuleManager>();
+            Assert.IsFalse(manager.StartModules.Any(module => module is RegisteredLifecycleModule));
+            Assert.IsFalse(manager.TickModules.Any(module => module is RegisteredLifecycleModule));
+            Assert.IsFalse(manager.LateTickModules.Any(module => module is RegisteredLifecycleModule));
+        }
 
-            var module = manager.GetModule<RegisteredLifecycleModule>();
+        [Test]
+        public void ModuleManager_GetRegisteredModuleTypes_SortsByPriorityThenName()
+        {
+            var sortedTypes = ModuleManager.GetRegisteredModuleTypes(new[]
+            {
+                typeof(RegisteredLifecycleModule),
+                typeof(SamePriorityRegisteredModule),
+                typeof(EarlyRegisteredModule),
+            }, includeTestAssemblies: true).ToList();
 
-            Assert.That(module.Initialized, Is.True);
-            Assert.That(manager.StartModules.Count, Is.EqualTo(1));
-            Assert.That(manager.TickModules.Count, Is.EqualTo(1));
-            Assert.That(manager.LateTickModules.Count, Is.EqualTo(1));
-            Assert.That(manager.StartModules[0], Is.SameAs(module));
-            Assert.That(manager.TickModules[0], Is.SameAs(module));
-            Assert.That(manager.LateTickModules[0], Is.SameAs(module));
+            Assert.That(sortedTypes[0], Is.EqualTo(typeof(EarlyRegisteredModule)));
+            Assert.That(sortedTypes[1], Is.EqualTo(typeof(SamePriorityRegisteredModule)));
+            Assert.That(sortedTypes[2], Is.EqualTo(typeof(RegisteredLifecycleModule)));
         }
 
         [Test]
         public void ModuleManager_GetModule_ForUnregisteredType_Throws()
         {
-            var go = new GameObject("ModuleManager_GetModule_Test");
-            var manager = go.AddComponent<ModuleManager>();
+            var manager = CreateManager("ModuleManager_GetModule_Throws_Test");
 
             Assert.Throws<InvalidOperationException>(() => manager.GetModule<UnregisteredTestModule>());
         }

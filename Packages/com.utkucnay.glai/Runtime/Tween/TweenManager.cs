@@ -33,6 +33,10 @@ namespace Glai.Tween
     //[ModuleRegister]
     internal class TweenManager : ModuleBase, ITick, ITweenManager
     {
+        const string ConfigResourcePath = "Glai/TweenConfig";
+
+        public TweenManagerConfig Config { get; set; } = TweenManagerConfig.Default;
+
         TweenDispatch tweenDispatch;
         
         SequenceDispatcher sequenceDispatcher;
@@ -47,15 +51,22 @@ namespace Glai.Tween
         
         public override void Initialize()
         {
+            LoadConfig();
             Instance = this;
             ITweenManager.Instance = this;
 
-            tweenState = new TweenState(default);
+            tweenState = new TweenState(Config.State);
             tweenDispatch.positionDispatcher = new TweenDispatcher<float3>(
-                TweenType.Position, math.lerp);
+                TweenType.Position, math.lerp, Config.DispatcherCapacity);
             
-            sequenceDispatcher = new SequenceDispatcher(100, tweenState.tweenPersistHandle, tweenState);
-            GlobalSpeed = 1f;
+            sequenceDispatcher = new SequenceDispatcher(Config.SequenceCapacity, tweenState.tweenPersistHandle, tweenState);
+            GlobalSpeed = Config.GlobalSpeed;
+        }
+
+        private void LoadConfig()
+        {
+            var asset = Resources.Load<TweenConfigAsset>(ConfigResourcePath);
+            Config = asset != null ? asset.TweenManager : TweenManagerConfig.Default;
         }
 
         public override void Dispose()

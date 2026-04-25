@@ -10,6 +10,7 @@ namespace Glai.ECS.Core
     public ref struct ChunkData
     {
         public FixedString128Bytes name;
+        public int alignment;
         public int capacityBytes;
         public int componentCount;
         public Span<int> componentSizes;
@@ -94,7 +95,7 @@ namespace Glai.ECS.Core
 
             // Allocate data buffer
             dataPtr = IntPtr.Zero;
-            dataHandle = chunkAllocator.AllocateArray<byte>(capacityBytes);
+            dataHandle = chunkAllocator.AllocateArray<byte>(capacityBytes, data.alignment);
             dataPtr = (IntPtr)UnsafeUtility.AddressOf(ref chunkAllocator.GetArray<byte>(dataHandle).GetPinnableReference());
         }
 
@@ -107,10 +108,11 @@ namespace Glai.ECS.Core
             }
 
             var allocator = memoryState.Get<IAllocator>(persistHandle);
+            var chunkAllocator = memoryState.Get<IAllocator>(chunkStateHandle);
             allocator.Deallocate(entityIdHandle);
-            allocator.Deallocate(dataHandle);
             allocator.Deallocate(componentSizesHandle);
             allocator.Deallocate(componentOffsetsHandle);
+            chunkAllocator.Deallocate(dataHandle);
 
             ((ECSMemoryState)memoryState).PushChunkStackHandle(chunkStateHandle);
 

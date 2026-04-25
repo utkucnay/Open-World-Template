@@ -1,74 +1,62 @@
 using System.Collections.Generic;
 using Glai.Collection;
 using Glai.Core;
-using Glai.ECS;
 using Glai.Gameplay.Core;
 using Glai.Module;
-using Unity.Profiling;
-using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Scripting;
 
 namespace Glai.Gameplay
 {
-    [Preserve]
-    internal static class GameplayManagerModuleRegistration
-    {
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterAssembliesLoaded)]
-        private static void Register()
-        {
-            Glai.Module.RuntimeModuleCatalog.Register<GameplayManager>();
-        }
-    }
-
-    [Preserve]
+    [Preserve, ModuleRegister(priority: 100)]
     public class GameplayManager : ModuleBase, IStart, ITick, ILateTick
     {
+        const string ConfigResourcePath = "Glai/GameplayConfig";
+
+        public GameplayManagerConfig Config { get; set; } = GameplayManagerConfig.Default;
+
         public FixedList<int> archetypeIds;
         public List<System> systems;
 
         GameplayMemoryState gameplayMemoryState;
-
-        Entity playerEntity;
+        bool started;
 
         public override void Initialize()
         {
-            gameplayMemoryState = new GameplayMemoryState();
+            LoadConfig();
+            gameplayMemoryState = new GameplayMemoryState(Config.Memory);
 
-            archetypeIds = new FixedList<int>(2, gameplayMemoryState.persistHandle, gameplayMemoryState);
+            archetypeIds = new FixedList<int>(Config.ArchetypeListCapacity, gameplayMemoryState.persistHandle, gameplayMemoryState);
+            systems = new List<System>();
+        }
 
-            archetypeIds.Add(ECSAPI.CreateArchetype(stackalloc ArchetypeType[]
-            {
-                ArchetypeType.Component<PackedTransformComponent>(),
-                ArchetypeType.Component<MeshRendererComponent>()
-            }));
-
-            archetypeIds.Add(ECSAPI.CreateArchetype(stackalloc ArchetypeType[]
-            {
-                ArchetypeType.Component<TransformComponent>()
-            }));
-
-            for (int i = 0; i < 100_000; i++)
-            {
-                var entity = ECSAPI.CreateEntity(archetypeIds[0]);
-                ref var transform = ref ECSAPI.GetComponentRef<PackedTransformComponent>(entity);
-                transform.position = new float3(i / 1000 * 2, 0f, i % 1000 * 2);
-                transform.rotation = quaternion.identity;
-            }
-
-            playerEntity = ECSAPI.CreateEntity(archetypeIds[1]);
-
-            systems = new List<System>()
-            {
-                new PlayerSystem(playerEntity),
-                new TurnSystem(),
-                new MeshRendererSystem()
-            };
+        private void LoadConfig()
+        {
+            var asset = Resources.Load<GameplayConfigAsset>(ConfigResourcePath);
+            Config = asset != null ? asset.GameplayManager : GameplayManagerConfig.Default;
         }
 
         public void Start()
         {
+            started = true;
+
             foreach (var system in systems)
+            {
+                system.Start();
+            }
+        }
+
+        public int AddArchetype(int archetypeId)
+        {
+            archetypeIds.Add(archetypeId);
+            return archetypeId;
+        }
+
+        public void AddSystem(System system)
+        {
+            systems.Add(system);
+
+            if (started)
             {
                 system.Start();
             }
@@ -91,6 +79,8 @@ namespace Glai.Gameplay
                 systems.Clear();
                 systems = null;
             }
+
+            started = false;
 
             if (gameplayMemoryState != null)
             {

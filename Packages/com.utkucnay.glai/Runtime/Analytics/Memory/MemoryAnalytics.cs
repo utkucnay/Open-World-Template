@@ -1,18 +1,30 @@
 using System.Collections.Generic;
 using Glai.Allocator;
+using Glai.Core;
+using UnityEngine;
+using Object = Glai.Core.Object;
 
 namespace Glai.Analytics.Memory
 {
-    public static class MemoryAnalytics
+    public class MemoryAnalytics
     {
-        private static LinkedList<IAllocator> collections;
+        private LinkedList<IAllocator> collections;
 
-        static MemoryAnalytics()
+        public MemoryAnalytics()
         {
             collections = new LinkedList<IAllocator>();
+
+            EventBus.Subscribe(IAllocator.RegisterEvent, RegisterAllocator);
+            EventBus.Subscribe(IAllocator.UnregisterEvent, UnregisterAllocator);
         }
 
-        public static void RegisterAllocator(object allocator)
+        ~MemoryAnalytics()
+        {
+            EventBus.Unsubscribe(IAllocator.RegisterEvent, RegisterAllocator);
+            EventBus.Unsubscribe(IAllocator.UnregisterEvent, UnregisterAllocator);
+        }
+
+        public void RegisterAllocator(Object allocator)
         {
             if (allocator is IAllocator validAllocator)
             {
@@ -20,7 +32,7 @@ namespace Glai.Analytics.Memory
             }
         }
 
-        public static void UnregisterAllocator(object allocator)
+        public void UnregisterAllocator(Object allocator)
         {
             if (allocator is IAllocator validAllocator)
             {
@@ -28,12 +40,12 @@ namespace Glai.Analytics.Memory
             }
         }
 
-        public static IReadOnlyCollection<IAllocator> GetCollections()
+        public IReadOnlyCollection<IAllocator> GetCollections()
         {
             return collections;
         }
 
-        public static void ResetPeaks()
+        public void ResetPeaks()
         {
             foreach (IAllocator allocator in collections)
             {
